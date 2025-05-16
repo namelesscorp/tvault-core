@@ -1,0 +1,77 @@
+License text copyright (c) 2025 Danil Mikhailov, Dmitrii Stepanov, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB Corporation Ab.
+
+---
+
+Parameters
+
+Licensor:             Danil Mikhailov, Dmitrii Stepanov
+Licensed Work:        tVault (Trust Vault), tvault-core (Trust Vault Core), Version 0.0.1 or later.
+                      The Licensed Work is (c) 2025 Danil Mikhailov, Dmitrii Stepanov.
+
+Additional Use Grant: You may make production use of the Licensed Work, provided
+                      your use does not include offering the Licensed Work to third
+                      parties on a hosted, embedded, or SaaS basis in a way that
+                      competes with Danil Mikhailov, Dmitrii Stepanov paid or hosted versions.
+
+                      A “competitive offering” is a product or service offered to
+                      third parties commercially, including through paid support
+                      or subscription, that significantly overlaps with the
+                      capabilities of any commercial versions of the Licensed Work.
+                      Products offered for free and for internal use are not
+                      considered competitive offerings.
+
+                      “Product” means software or service that is either installed
+                      and used by end users or offered as a hosted or cloud-based service.
+
+                      “Embedded” includes distributing the Licensed Work’s code
+                      (modified or not) as part of a larger product or system that
+                      offers equivalent or overlapping functionality.
+
+                      Internal use by your organization (including affiliates under
+                      common control) is not considered a competitive offering.
+
+Change Date:          May 16, 2035
+Change License:       GNU General Public License Version 3 (GPLv3)
+
+For commercial licensing inquiries, please contact:
+offer@nameless.company, offer@tvault.app
+
+---
+
+Notice
+
+Business Source License 1.1
+
+---
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative works,
+redistribute, and make non-production use of the Licensed Work.
+The Licensor may make an Additional Use Grant, as above, permitting limited production use.
+
+Effective on the Change Date (May 16, 2035), the Licensor grants you rights under the terms
+of the Change License (GPLv3). After this date, the rights under this Business Source License
+terminate.
+
+If your use of the Licensed Work does not comply with this License, you must either:
+(a) stop using the Licensed Work, or
+(b) purchase a commercial license from the Licensor.
+
+This License applies to each version of the Licensed Work separately.
+The Change Date may differ by version.
+
+You must include this License with any redistribution or derivative of the Licensed Work.
+If you receive the Licensed Work (original or modified) from a third party,
+you are still bound by these terms.
+
+Any violation of this License immediately and automatically terminates your rights
+under this License for all versions.
+
+This License does not grant any rights to use any trademarks or logos of the Licensor
+(except as explicitly required by the License).
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED "AS IS".
+LICENSOR DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION)
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND TITLE.

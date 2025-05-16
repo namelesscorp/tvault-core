@@ -1,0 +1,17 @@
+run:
+  timeout: 5m
+  tests: true
+
+issues:
+  exclude-dirs:
+    - vendor
+
+linters:
+  enable:
+    - revive
+    - errcheck
+    - gocritic
+    - govet
+    - staticcheck
+    - unused
+    - gocyclo

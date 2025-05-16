@@ -1,0 +1,41 @@
+# Go binary files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Vendor directories
+/vendor/
+
+# Logs and debug files
+*.log
+*.out
+*.test
+*.prof
+*.trace
+
+# Compilation files
+*.o
+*.a
+
+# GoLand IDE
+.idea/
+*.iml
+
+# Cache and metadata
+.DS_Store
+**/.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+
+# For macOS
+*.DS_Store
+
+# For Windows
+*.bak
+
+# Local OS configurations
+/.vscode/
