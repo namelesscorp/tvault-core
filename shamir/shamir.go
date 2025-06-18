@@ -1,51 +1,37 @@
 package shamir
 
 import (
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 
-	"github.com/namelesscorp/tvault-core/secret"
+	"github.com/namelesscorp/tvault-core/integrity_provider"
 )
 
 type Share struct {
-	ID    byte
-	Value secret.Secret
-	MAC   [32]byte
+	ID         byte
+	Value      []byte
+	ProviderID byte
+	Signature  []byte
 }
 
-func computeMAC(id byte, data []byte, key []byte) [32]byte {
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte{id})
-	h.Write(data)
-
-	var mac [32]byte
-	copy(mac[:], h.Sum(nil))
-
-	return mac
-}
-
-func Split(input secret.Secret, n, t int, macKey []byte) ([]Share, error) {
+func Split(input []byte, n, t int, provider integrity_provider.IntegrityProvider) ([]Share, error) {
 	if t < 2 || t > 255 || n < t || n > 255 {
 		return nil, errors.New("invalid threshold or number of shares")
 	}
 
-	secretBytes := input.Bytes()
-	defer input.Destroy()
-
 	shareData := make([][]byte, n)
 	for i := range shareData {
-		shareData[i] = make([]byte, len(secretBytes))
+		shareData[i] = make([]byte, len(input))
 	}
 
-	for i, b := range secretBytes {
+	for i, b := range input {
 		cfs := make([]byte, t)
 		cfs[0] = b
 
 		if _, err := io.ReadFull(rand.Reader, cfs[1:]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("io read full error; %w", err)
 		}
 
 		for j := 1; j <= n; j++ {
@@ -56,30 +42,44 @@ func Split(input secret.Secret, n, t int, macKey []byte) ([]Share, error) {
 
 	shares := make([]Share, n)
 	for i := 0; i < n; i++ {
-		val := secret.New(shareData[i])
+		var (
+			id  = byte(i + 1)
+			val = shareData[i]
+		)
+
+		signature, err := provider.Sign(id, val)
+		if err != nil {
+			return nil, fmt.Errorf("sign share error; %w", err)
+		}
+
 		shares[i] = Share{
-			ID:    byte(i + 1),
-			Value: val,
-			MAC:   computeMAC(byte(i+1), val.Bytes(), macKey),
+			ID:         id,
+			Value:      val,
+			ProviderID: provider.ID(),
+			Signature:  signature,
 		}
 	}
 
 	return shares, nil
 }
 
-func Combine(shares []Share, macKey []byte) (secret.Secret, error) {
+func Combine(shares []Share, provider integrity_provider.IntegrityProvider) ([]byte, error) {
 	if len(shares) < 2 {
 		return nil, errors.New("need at least 2 shares")
 	}
 
-	length := shares[0].Value.Len()
-	res := make([]byte, length)
-
+	var (
+		length = len(shares[0].Value)
+		res    = make([]byte, length)
+	)
 	for _, sh := range shares {
-		expectedMAC := computeMAC(sh.ID, sh.Value.Bytes(), macKey)
+		isVerify, err := provider.IsVerify(sh.ID, sh.Value, sh.Signature)
+		if err != nil {
+			return nil, fmt.Errorf("verify share signature error; %w", err)
+		}
 
-		if !hmac.Equal(expectedMAC[:], sh.MAC[:]) {
-			return nil, errors.New("MAC mismatch on share")
+		if !isVerify {
+			return nil, errors.New("verify share signature failed")
 		}
 	}
 
@@ -87,21 +87,25 @@ func Combine(shares []Share, macKey []byte) (secret.Secret, error) {
 		var xVals, yVals []byte
 		for _, sh := range shares {
 			xVals = append(xVals, sh.ID)
-			yVals = append(yVals, sh.Value.Bytes()[i])
+			yVals = append(yVals, sh.Value[i])
 		}
 
 		res[i] = lagrangeInterpolate(0, xVals, yVals)
 	}
 
-	return secret.New(res), nil
+	return res, nil
 }
 
 func lagrangeInterpolate(x byte, xVals, yVals []byte) byte {
-	res := byte(0)
-	n := len(xVals)
+	var (
+		res = byte(0)
+		n   = len(xVals)
+	)
 	for i := 0; i < n; i++ {
-		num := byte(1)
-		den := byte(1)
+		var (
+			num = byte(1)
+			den = byte(1)
+		)
 		for j := 0; j < n; j++ {
 			if i == j {
 				continue
