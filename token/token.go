@@ -37,7 +37,7 @@ type Token struct {
 func Build(token Token, key []byte) ([]byte, error) {
 	tokenBytes, err := json.Marshal(&token)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal token to JSON: %w", err)
+		return nil, fmt.Errorf("failed to marshal token to JSON; %w", err)
 	}
 
 	if key == nil {
@@ -73,7 +73,7 @@ func Parse(tokenBytes, key []byte) (Token, error) {
 
 	var result Token
 	if err = json.Unmarshal(decrypted, &result); err != nil {
-		return Token{}, fmt.Errorf("failed to unmarshal token JSON: %w", err)
+		return Token{}, fmt.Errorf("failed to unmarshal token JSON; %w", err)
 	}
 
 	if result.Version != Version {
@@ -87,7 +87,7 @@ func Parse(tokenBytes, key []byte) (Token, error) {
 func encrypt(data, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %w", err)
+		return nil, fmt.Errorf("failed to create cipher; %w", err)
 	}
 
 	encrypted := make([]byte, len(data))
@@ -101,7 +101,7 @@ func encrypt(data, key []byte) ([]byte, error) {
 func decrypt(data, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %w", err)
+		return nil, fmt.Errorf("failed to create cipher; %w", err)
 	}
 
 	decrypted := make([]byte, len(data))
@@ -116,7 +116,7 @@ func decodeBase64(data []byte) ([]byte, error) {
 	decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
 	decoded, err := base64.StdEncoding.DecodeString(string(data))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode Base64 token: %w", err)
+		return nil, fmt.Errorf("failed to decode Base64 token; %w", err)
 	}
 	return decoded, nil
 }

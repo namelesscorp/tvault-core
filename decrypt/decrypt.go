@@ -70,7 +70,7 @@ func Decrypt(options Options) error {
 
 	content, err := cont.Decrypt(masterKey)
 	if err != nil {
-		return fmt.Errorf("decrypt container error: %w", err)
+		return fmt.Errorf("decrypt container error; %w", err)
 	}
 
 	return unpackContent(content, *options.FolderPath, cont.GetHeader().CompressionType)
@@ -79,7 +79,7 @@ func Decrypt(options Options) error {
 func openContainer(containerPath string) (container.Container, error) {
 	cont := container.NewContainer(containerPath, container.Metadata{})
 	if err := cont.Open(); err != nil {
-		return nil, fmt.Errorf("open container error: %w", err)
+		return nil, fmt.Errorf("open container error; %w", err)
 	}
 
 	return cont, nil
@@ -102,13 +102,13 @@ func parseTokens(tokenString string, additionalPassword []byte) (masterKey []byt
 	for _, key := range strings.Split(tokenString, "|") {
 		var tokenItem token.Token
 		if tokenItem, err = token.Parse([]byte(key), additionalPassword); err != nil {
-			return nil, nil, fmt.Errorf("parse token error: %w", err)
+			return nil, nil, fmt.Errorf("parse token error; %w", err)
 		}
 
 		switch byte(tokenItem.Type) {
 		case token.TypeMaster:
 			if masterKey, err = hex.DecodeString(tokenItem.Value); err != nil {
-				return nil, nil, fmt.Errorf("decode master key error: %w", err)
+				return nil, nil, fmt.Errorf("decode master key error; %w", err)
 			}
 		case token.TypeShare:
 			var share shamir.Share
@@ -128,12 +128,12 @@ func parseTokens(tokenString string, additionalPassword []byte) (masterKey []byt
 func createShareFromToken(item token.Token) (shamir.Share, error) {
 	decodedValue, err := hex.DecodeString(item.Value)
 	if err != nil {
-		return shamir.Share{}, fmt.Errorf("decode share value error: %w", err)
+		return shamir.Share{}, fmt.Errorf("decode share value error; %w", err)
 	}
 
 	decodedSignature, err := hex.DecodeString(item.Signature)
 	if err != nil {
-		return shamir.Share{}, fmt.Errorf("decode share signature error: %w", err)
+		return shamir.Share{}, fmt.Errorf("decode share signature error; %w", err)
 	}
 
 	return shamir.Share{
@@ -156,7 +156,7 @@ func restoreMasterKey(shares []shamir.Share, additionalPassword []byte) ([]byte,
 
 	masterKey, err := shamir.Combine(shares, integrityProvider)
 	if err != nil {
-		return nil, fmt.Errorf("combine shamir shares error: %w", err)
+		return nil, fmt.Errorf("combine shamir shares error; %w", err)
 	}
 
 	return masterKey, nil
@@ -179,7 +179,7 @@ func unpackContent(content []byte, folderPath string, compressionType byte) erro
 	switch compressionType {
 	case compression.TypeZip:
 		if err := zip.New().Unpack(content, folderPath); err != nil {
-			return fmt.Errorf("compression unpack error: %w", err)
+			return fmt.Errorf("compression unpack error; %w", err)
 		}
 
 		return nil

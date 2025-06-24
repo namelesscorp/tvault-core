@@ -8,13 +8,10 @@ import (
 )
 
 const (
-	// container signature for validation
+	// signature for validation container
 	signature = "TVLT"
 
-	// number of bytes of values from the header
-	headerSize = 38
-
-	// container version for backward compatibility
+	// Version container version for backward compatibility
 	Version = 1
 )
 

@@ -3,6 +3,7 @@ package encrypt
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -127,7 +128,7 @@ func compressFolder(options Options) ([]byte, byte, error) {
 		comp := zip.New()
 		data, err := comp.Pack(*options.FolderPath)
 		if err != nil {
-			return nil, 0, fmt.Errorf("compression pack error: %w", err)
+			return nil, 0, fmt.Errorf("compression pack error; %w", err)
 		}
 
 		return data, comp.ID(), nil
@@ -146,7 +147,7 @@ func createContainer(options Options, data []byte, compressionID byte) ([]byte, 
 
 	masterKey, err := cont.Create(data, []byte(*options.Passphrase), compressionID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create container error: %w", err)
+		return nil, nil, fmt.Errorf("create container error; %w", err)
 	}
 
 	var containerHeaderSalt = cont.GetHeader().Salt
@@ -205,7 +206,7 @@ func getTokenWriter(options Options) (io.Writer, io.Closer, error) {
 	if *options.TokenSaveType == TokenSaveTypeFile {
 		file, err := os.Create(*options.TokenSavePath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create token file: %w", err)
+			return nil, nil, fmt.Errorf("failed to create token file; %w", err)
 		}
 
 		return file, file, nil
@@ -217,7 +218,7 @@ func getTokenWriter(options Options) (io.Writer, io.Closer, error) {
 type stdoutWriter struct{}
 
 func (w stdoutWriter) Write(p []byte) (n int, err error) {
-	log.Print(string(p))
+	fmt.Print(string(p))
 	return len(p), nil
 }
 
@@ -227,23 +228,30 @@ func closeWithErrorLog(closer io.Closer) {
 	}
 }
 
+type tokenList struct {
+	ShareList map[int]string `json:"share_list"`
+}
+
 func generateAndSaveShareTokens(
 	options Options,
 	additionalPassword []byte,
 	masterKey []byte,
-	integrityProvider integrity_provider.IntegrityProvider,
+	integrity integrity_provider.IntegrityProvider,
 	writer io.Writer,
 ) error {
 	shares, err := shamir.Split(
 		masterKey,
 		*options.NumberOfShares,
 		*options.Threshold,
-		integrityProvider,
+		integrity,
 	)
 	if err != nil {
-		return fmt.Errorf("shamir split error: %w", err)
+		return fmt.Errorf("shamir split error; %w", err)
 	}
 
+	var jsonTokenList = tokenList{
+		ShareList: make(map[int]string, len(shares)),
+	}
 	for _, share := range shares {
 		var shareToken []byte
 		if shareToken, err = token.Build(
@@ -257,21 +265,26 @@ func generateAndSaveShareTokens(
 			},
 			additionalPassword,
 		); err != nil {
-			return fmt.Errorf("build token (shares) error: %w", err)
+			return fmt.Errorf("build token (shares) error; %w", err)
 		}
 
-		tokenText := fmt.Sprintf(
-			"id = %d; key = %s\n",
-			share.ID,
-			base64.StdEncoding.EncodeToString(shareToken),
-		)
+		jsonTokenList.ShareList[int(share.ID)] = base64.StdEncoding.EncodeToString(shareToken)
+	}
 
-		if _, err = writer.Write([]byte(tokenText)); err != nil {
-			return fmt.Errorf("failed to write share token: %w", err)
-		}
+	var bytesTokenList []byte
+	if bytesTokenList, err = json.MarshalIndent(jsonTokenList, "", " "); err != nil {
+		return fmt.Errorf("marshal token list error; %w", err)
+	}
+
+	if _, err = writer.Write(bytesTokenList); err != nil {
+		return fmt.Errorf("failed to write share token; %w", err)
 	}
 
 	return nil
+}
+
+type masterToken struct {
+	MasterToken string `json:"master_token"`
 }
 
 func generateAndSaveMasterToken(
@@ -279,7 +292,7 @@ func generateAndSaveMasterToken(
 	masterKey []byte,
 	writer io.Writer,
 ) error {
-	masterToken, err := token.Build(
+	newMasterToken, err := token.Build(
 		token.Token{
 			Version:    token.Version,
 			Type:       int(token.TypeMaster),
@@ -289,12 +302,20 @@ func generateAndSaveMasterToken(
 		additionalPassword,
 	)
 	if err != nil {
-		return fmt.Errorf("build token (master) error: %w", err)
+		return fmt.Errorf("build token (master) error; %w", err)
 	}
 
-	tokenText := fmt.Sprintf("key = %s\n", base64.StdEncoding.EncodeToString(masterToken))
-	if _, err = writer.Write([]byte(tokenText)); err != nil {
-		return fmt.Errorf("failed to write master token: %w", err)
+	var bytesMasterToken []byte
+	if bytesMasterToken, err = json.MarshalIndent(
+		masterToken{
+			MasterToken: base64.StdEncoding.EncodeToString(newMasterToken),
+		}, "", " ",
+	); err != nil {
+		return fmt.Errorf("marshal token list error; %w", err)
+	}
+
+	if _, err = writer.Write(bytesMasterToken); err != nil {
+		return fmt.Errorf("failed to write master token; %w", err)
 	}
 
 	return nil

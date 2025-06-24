@@ -22,12 +22,14 @@ package container
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/lib"
@@ -85,11 +87,19 @@ func (c *container) Create(data, key []byte, compressionType byte) ([]byte, erro
 		return nil, fmt.Errorf("create new gcm error; %w", err)
 	}
 
+	if _, err = io.ReadFull(rand.Reader, c.header.Nonce[:]); err != nil {
+		return nil, fmt.Errorf("failed to generate noncel; %w", err)
+	}
+
 	ciphertext := aesGcm.Seal(nil, c.header.Nonce[:], data, nil)
 
 	var metaBytes []byte
 	if metaBytes, err = json.Marshal(c.metadata); err != nil {
 		return nil, fmt.Errorf("json marshal metadata error; %w", err)
+	}
+
+	if len(metaBytes) > math.MaxUint32 {
+		return nil, fmt.Errorf("metadata size exceeds maximum allowed")
 	}
 
 	c.header.MetadataSize = uint32(len(metaBytes))
