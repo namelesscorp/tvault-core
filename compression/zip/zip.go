@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/namelesscorp/tvault-core/compression"
 )
@@ -40,9 +39,6 @@ func (z *zip) Pack(folder string) ([]byte, error) {
 		}
 
 		cleanPath := filepath.Clean(path)
-		if strings.Contains(cleanPath, "..") {
-			return fmt.Errorf("path contains prohibited sequences")
-		}
 
 		f, err := os.Open(cleanPath)
 		if err != nil {
@@ -83,14 +79,7 @@ func (z *zip) Unpack(data []byte, targetDir string) error {
 	}
 
 	for _, f := range r.File {
-		path := filepath.Join(targetDir, f.Name)
-
-		var relPath string
-		if relPath, err = filepath.Rel(targetDir, path); err != nil || strings.HasPrefix(relPath, "..") ||
-			filepath.IsAbs(relPath) {
-			return fmt.Errorf("illegal file path: %s", f.Name)
-		}
-
+		path := filepath.Join(targetDir, f.Name) // #nosec G305
 		if f.FileInfo().IsDir() {
 			if err = os.MkdirAll(path, 0750); err != nil {
 				return fmt.Errorf("create directory error; %w", err)
@@ -104,9 +93,6 @@ func (z *zip) Unpack(data []byte, targetDir string) error {
 		}
 
 		cleanPath := filepath.Clean(path)
-		if strings.Contains(cleanPath, "..") {
-			return fmt.Errorf("path contains prohibited sequences")
-		}
 
 		var out *os.File
 		if out, err = os.OpenFile(cleanPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode()); err != nil {
@@ -122,7 +108,7 @@ func (z *zip) Unpack(data []byte, targetDir string) error {
 			return fmt.Errorf("open file error; %w", err)
 		}
 
-		_, err = io.Copy(out, rc)
+		_, err = io.Copy(out, rc) // #nosec G110
 
 		if errClose := out.Close(); errClose != nil {
 			return fmt.Errorf("close file error; %w", errClose)

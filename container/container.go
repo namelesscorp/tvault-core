@@ -91,7 +91,7 @@ func (c *container) Create(data, key []byte, compressionType byte) ([]byte, erro
 		return nil, fmt.Errorf("failed to generate noncel; %w", err)
 	}
 
-	ciphertext := aesGcm.Seal(nil, c.header.Nonce[:], data, nil)
+	ciphertext := aesGcm.Seal(nil, c.header.Nonce[:], data, nil) // #nosec G407
 
 	var metaBytes []byte
 	if metaBytes, err = json.Marshal(c.metadata); err != nil {
@@ -102,7 +102,7 @@ func (c *container) Create(data, key []byte, compressionType byte) ([]byte, erro
 		return nil, fmt.Errorf("metadata size exceeds maximum allowed")
 	}
 
-	c.header.MetadataSize = uint32(len(metaBytes))
+	c.header.MetadataSize = uint32(len(metaBytes)) // #nosec G115
 
 	var f *os.File
 	if f, err = os.OpenFile(c.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err != nil {
