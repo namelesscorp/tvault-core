@@ -35,7 +35,7 @@ func init() {
 
 // Direct multiplication in Galois field without using tables
 func gfMultiply(a, b byte) byte {
-	var p byte = 0
+	var p byte
 	for i := 0; i < 8; i++ {
 		if (b & 1) != 0 {
 			p ^= a

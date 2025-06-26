@@ -113,10 +113,10 @@ func decrypt(data, key []byte) ([]byte, error) {
 
 // decodeBase64 - decodes a Base64-encoded byte slice and returns the decoded data or an error if the decoding fails.
 func decodeBase64(data []byte) ([]byte, error) {
-	decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
 	decoded, err := base64.StdEncoding.DecodeString(string(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode Base64 token; %w", err)
 	}
+
 	return decoded, nil
 }

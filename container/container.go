@@ -104,9 +104,8 @@ func (c *container) Create(data, key []byte, compressionType byte) ([]byte, erro
 
 	c.header.MetadataSize = uint32(len(metaBytes))
 
-	// write file
-	f, err := os.OpenFile(c.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
+	var f *os.File
+	if f, err = os.OpenFile(c.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err != nil {
 		return nil, fmt.Errorf("open file error; %w", err)
 	}
 	defer func(f *os.File) {
