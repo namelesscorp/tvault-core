@@ -1,7 +1,7 @@
 package ed25519
 
 import (
-	"github.com/namelesscorp/tvault-core/integrity_provider"
+	"github.com/namelesscorp/tvault-core/integrity"
 )
 
 type (
@@ -11,7 +11,7 @@ type (
 	}
 )
 
-func New(publicKey, privateKey []byte) integrity_provider.IntegrityProvider {
+func New(publicKey, privateKey []byte) integrity.Provider {
 	return &ed25519{
 		publicKey:  publicKey,
 		privateKey: privateKey,
@@ -29,5 +29,5 @@ func (e *ed25519) IsVerify(_ byte, _, _ []byte) (bool, error) {
 }
 
 func (e *ed25519) ID() byte {
-	return integrity_provider.TypeEd25519
+	return integrity.TypeEd25519
 }

@@ -14,8 +14,8 @@ import (
 	"github.com/namelesscorp/tvault-core/compression"
 	"github.com/namelesscorp/tvault-core/compression/zip"
 	"github.com/namelesscorp/tvault-core/container"
-	"github.com/namelesscorp/tvault-core/integrity_provider"
-	"github.com/namelesscorp/tvault-core/integrity_provider/hmac"
+	"github.com/namelesscorp/tvault-core/integrity"
+	"github.com/namelesscorp/tvault-core/integrity/hmac"
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/shamir"
 	"github.com/namelesscorp/tvault-core/token"
@@ -35,8 +35,8 @@ var (
 		TokenSaveTypeStdout: {},
 	}
 	integrityTypes = map[string]struct{}{
-		integrity_provider.TypeNameNone: {},
-		integrity_provider.TypeNameHMAC: {},
+		integrity.TypeNameNone: {},
+		integrity.TypeNameHMAC: {},
 	}
 
 	ErrUnknownCompressionType       = errors.New("unknown compression type")
@@ -87,7 +87,7 @@ func (o *Options) Validate() error {
 	if _, ok := integrityTypes[*o.IntegrityProvider]; !ok {
 		return ErrInvalidIntegrity
 	}
-	if *o.AdditionalPassword == "" && *o.IntegrityProvider == integrity_provider.TypeNameHMAC {
+	if *o.AdditionalPassword == "" && *o.IntegrityProvider == integrity.TypeNameHMAC {
 		return ErrMissingPassword
 	}
 	if *o.TokenSavePath == "" && *o.TokenSaveType == TokenSaveTypeFile {
@@ -155,13 +155,13 @@ func createContainer(options Options, data []byte, compressionID byte) ([]byte, 
 	return masterKey, containerHeaderSalt[:], nil
 }
 
-func createIntegrityProvider(options Options) (integrity_provider.IntegrityProvider, error) {
+func createIntegrityProvider(options Options) (integrity.Provider, error) {
 	switch *options.IntegrityProvider {
-	case integrity_provider.TypeNameNone:
-		return integrity_provider.NewNoneProvider(), nil
-	case integrity_provider.TypeNameHMAC:
+	case integrity.TypeNameNone:
+		return integrity.NewNoneProvider(), nil
+	case integrity.TypeNameHMAC:
 		return hmac.New([]byte(*options.AdditionalPassword)), nil
-	case integrity_provider.TypeNameEd25519:
+	case integrity.TypeNameEd25519:
 		return nil, ErrEd25519Unimplemented
 	default:
 		return nil, ErrUnknownIntegrityProvider
@@ -169,7 +169,7 @@ func createIntegrityProvider(options Options) (integrity_provider.IntegrityProvi
 }
 
 func deriveAdditionalPassword(options Options, salt []byte) ([]byte, error) {
-	if *options.AdditionalPassword != "" && *options.IntegrityProvider == integrity_provider.TypeNameHMAC {
+	if *options.AdditionalPassword != "" && *options.IntegrityProvider == integrity.TypeNameHMAC {
 		return lib.PBKDF2Key(
 			[]byte(*options.AdditionalPassword),
 			salt,
@@ -185,7 +185,7 @@ func generateAndSaveTokens(
 	options Options,
 	additionalPassword []byte,
 	masterKey []byte,
-	integrityProvider integrity_provider.IntegrityProvider,
+	integrityProvider integrity.Provider,
 ) error {
 	tokenWriter, closer, err := getTokenWriter(options)
 	if err != nil {
@@ -236,7 +236,7 @@ func generateAndSaveShareTokens(
 	options Options,
 	additionalPassword []byte,
 	masterKey []byte,
-	integrity integrity_provider.IntegrityProvider,
+	integrity integrity.Provider,
 	writer io.Writer,
 ) error {
 	shares, err := shamir.Split(
@@ -297,7 +297,7 @@ func generateAndSaveMasterToken(
 			Version:    token.Version,
 			Type:       int(token.TypeMaster),
 			Value:      hex.EncodeToString(masterKey),
-			ProviderID: int(integrity_provider.TypeNone),
+			ProviderID: int(integrity.TypeNone),
 		},
 		additionalPassword,
 	)

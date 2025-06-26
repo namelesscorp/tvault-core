@@ -2,7 +2,7 @@
 
 ## Description
 
-The `integrity_provider` package defines interfaces and implementations for ensuring data integrity within the tvault-core system. 
+The `integrity` package defines interfaces and implementations for ensuring data integrity within the tvault-core system. 
 It provides mechanisms to verify that data has not been tampered with during storage, transmission, or when shared between different components of the system.
 
 ## Key Features

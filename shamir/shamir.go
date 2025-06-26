@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/namelesscorp/tvault-core/integrity_provider"
+	"github.com/namelesscorp/tvault-core/integrity"
 )
 
 type Share struct {
@@ -16,7 +16,7 @@ type Share struct {
 	Signature  []byte
 }
 
-func Split(input []byte, n, t int, provider integrity_provider.IntegrityProvider) ([]Share, error) {
+func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error) {
 	if t < 2 || t > 255 || n < t || n > 255 {
 		return nil, errors.New("invalid threshold or number of shares")
 	}
@@ -63,7 +63,7 @@ func Split(input []byte, n, t int, provider integrity_provider.IntegrityProvider
 	return shares, nil
 }
 
-func Combine(shares []Share, provider integrity_provider.IntegrityProvider) ([]byte, error) {
+func Combine(shares []Share, provider integrity.Provider) ([]byte, error) {
 	if len(shares) < 2 {
 		return nil, errors.New("need at least 2 shares")
 	}

@@ -1,4 +1,4 @@
-package integrity_provider
+package integrity
 
 const (
 	TypeNone    byte = 0x00
@@ -11,7 +11,7 @@ const (
 )
 
 type (
-	IntegrityProvider interface {
+	Provider interface {
 		Sign(id byte, data []byte) (signature []byte, _ error)
 		IsVerify(id byte, data, signature []byte) (isVerify bool, _ error)
 		ID() byte
@@ -20,7 +20,7 @@ type (
 	noneProvider struct{}
 )
 
-func NewNoneProvider() IntegrityProvider {
+func NewNoneProvider() Provider {
 	return &noneProvider{}
 }
 

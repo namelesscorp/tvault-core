@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/namelesscorp/tvault-core/integrity_provider"
-	"github.com/namelesscorp/tvault-core/integrity_provider/mock"
+	"github.com/namelesscorp/tvault-core/integrity"
+	"github.com/namelesscorp/tvault-core/integrity/mock"
 )
 
 func TestSplit(t *testing.T) {
@@ -14,7 +14,7 @@ func TestSplit(t *testing.T) {
 		name      string
 		input     []byte
 		n, t      int
-		provider  integrity_provider.IntegrityProvider
+		provider  integrity.Provider
 		expectErr bool
 	}{
 		{
@@ -110,7 +110,7 @@ func TestCombine(t *testing.T) {
 	tests := []struct {
 		name         string
 		shares       []Share
-		provider     integrity_provider.IntegrityProvider
+		provider     integrity.Provider
 		expectResult []byte
 		expectErr    bool
 	}{

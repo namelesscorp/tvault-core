@@ -9,8 +9,8 @@ import (
 	"github.com/namelesscorp/tvault-core/compression"
 	"github.com/namelesscorp/tvault-core/compression/zip"
 	"github.com/namelesscorp/tvault-core/container"
-	"github.com/namelesscorp/tvault-core/integrity_provider"
-	"github.com/namelesscorp/tvault-core/integrity_provider/hmac"
+	"github.com/namelesscorp/tvault-core/integrity"
+	"github.com/namelesscorp/tvault-core/integrity/hmac"
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/shamir"
 	"github.com/namelesscorp/tvault-core/token"
@@ -162,13 +162,13 @@ func restoreMasterKey(shares []shamir.Share, additionalPassword []byte) ([]byte,
 	return masterKey, nil
 }
 
-func createIntegrityProvider(providerID byte, additionalPassword []byte) (integrity_provider.IntegrityProvider, error) {
+func createIntegrityProvider(providerID byte, additionalPassword []byte) (integrity.Provider, error) {
 	switch providerID {
-	case integrity_provider.TypeNone:
-		return integrity_provider.NewNoneProvider(), nil
-	case integrity_provider.TypeHMAC:
+	case integrity.TypeNone:
+		return integrity.NewNoneProvider(), nil
+	case integrity.TypeHMAC:
 		return hmac.New(additionalPassword), nil
-	case integrity_provider.TypeEd25519:
+	case integrity.TypeEd25519:
 		return nil, ErrEd25519Unimplemented
 	default:
 		return nil, ErrUnknownIntegrityProvider

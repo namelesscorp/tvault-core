@@ -10,7 +10,7 @@ import (
 	"github.com/namelesscorp/tvault-core/container"
 	"github.com/namelesscorp/tvault-core/decrypt"
 	"github.com/namelesscorp/tvault-core/encrypt"
-	"github.com/namelesscorp/tvault-core/integrity_provider"
+	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/token"
 )
 
@@ -74,7 +74,7 @@ func handleEncryptCommand() {
 		IsShamirEnabled:    encryptCmd.Bool("is-shamir-enabled", true, "enabling the Shamir algorithm [true | false]"),
 		NumberOfShares:     encryptCmd.Int("number-of-shares", 5, "number of shares (required for -is-shamir-enabled=true)"),
 		Threshold:          encryptCmd.Int("threshold", 3, "threshold of shares (required for -is-shamir-enabled=true)"),
-		IntegrityProvider:  encryptCmd.String("integrity-provider", integrity_provider.TypeNameHMAC, "type of integrity provider [none | hmac]"),
+		IntegrityProvider:  encryptCmd.String("integrity-provider", integrity.TypeNameHMAC, "type of integrity provider [none | hmac]"),
 		AdditionalPassword: encryptCmd.String("additional-password", "", "additional password for integrity provider (required for -integrity-provider=hmac)"),
 	}
 

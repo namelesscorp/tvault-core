@@ -4,7 +4,7 @@ import (
 	cryptoHMAC "crypto/hmac"
 	"crypto/sha256"
 
-	"github.com/namelesscorp/tvault-core/integrity_provider"
+	"github.com/namelesscorp/tvault-core/integrity"
 )
 
 type (
@@ -13,7 +13,7 @@ type (
 	}
 )
 
-func New(key []byte) integrity_provider.IntegrityProvider {
+func New(key []byte) integrity.Provider {
 	return &hmac{
 		key: key,
 	}
@@ -40,5 +40,5 @@ func (h *hmac) IsVerify(id byte, data, signature []byte) (bool, error) {
 }
 
 func (h *hmac) ID() byte {
-	return integrity_provider.TypeHMAC
+	return integrity.TypeHMAC
 }
