@@ -14,13 +14,13 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      - name: check out code
+        uses: actions/checkout@v4
       - name: set up golang
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: check out code
-        uses: actions/checkout@v4
       - name: download dependencies
         run: go mod download
       - name: build
@@ -31,13 +31,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: check out code
+        uses: actions/checkout@v4
       - name: set up golang
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: check out code
-        uses: actions/checkout@v4
       - name: download dependencies
         run: go mod download
       - name: run test
@@ -53,13 +53,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: check out code
+        uses: actions/checkout@v4
       - name: set up golang
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: check out code
-        uses: actions/checkout@v4
       - name: run lint
         uses: golangci/golangci-lint-action@v4
         with:
@@ -83,12 +83,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: check out code
+        uses: actions/checkout@v4
       - name: set up golang
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: check out code
-        uses: actions/checkout@v4
       - name: run test bench
         run: go test -bench=. -benchmem ./...
