@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -38,20 +37,6 @@ var (
 		integrity.TypeNameNone: {},
 		integrity.TypeNameHMAC: {},
 	}
-
-	ErrUnknownCompressionType       = errors.New("unknown compression type")
-	ErrNoneCompressionUnimplemented = errors.New("compression type none unimplemented")
-	ErrUnknownIntegrityProvider     = errors.New("unknown integrity provider")
-	ErrEd25519Unimplemented         = errors.New("integrity provider ed25519 unimplemented")
-
-	ErrContainerPathRequired = errors.New("container-path is required")
-	ErrFolderPathRequired    = errors.New("folder-path is required")
-	ErrPassphraseRequired    = errors.New("passphrase is required")
-	ErrInvalidCompression    = errors.New("compression-type must be [zip]")
-	ErrInvalidTokenSave      = errors.New("token-save-type must be [file | stdout]")
-	ErrInvalidIntegrity      = errors.New("integrity-provider must be [none | hmac ]")
-	ErrMissingPassword       = errors.New("additional-password is required for -integrity-provider=hmac")
-	ErrMissingKeyPath        = errors.New("key-save-path is required for -key-save-type=[file]")
 )
 
 type Options struct {
@@ -70,29 +55,62 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	if *o.ContainerPath == "" {
-		return ErrContainerPathRequired
+		return &lib.Error{
+			Message: lib.ErrContainerPathRequired,
+			Code:    0x101,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if *o.FolderPath == "" {
-		return ErrFolderPathRequired
+		return &lib.Error{
+			Message: lib.ErrFolderPathRequired,
+			Code:    0x102,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if *o.Passphrase == "" {
-		return ErrPassphraseRequired
+		return &lib.Error{
+			Message: lib.ErrPassphraseRequired,
+			Code:    0x103,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if _, ok := compressionTypes[*o.CompressionType]; !ok {
-		return ErrInvalidCompression
+		return &lib.Error{
+			Message: lib.ErrInvalidCompression,
+			Code:    0x104,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if _, ok := tokenSaveTypes[*o.TokenSaveType]; !ok {
-		return ErrInvalidTokenSave
+		return &lib.Error{
+			Message: lib.ErrInvalidTokenSave,
+			Code:    0x105,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if _, ok := integrityTypes[*o.IntegrityProvider]; !ok {
-		return ErrInvalidIntegrity
+		return &lib.Error{
+			Message: lib.ErrInvalidIntegrity,
+			Code:    0x106,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if *o.AdditionalPassword == "" && *o.IntegrityProvider == integrity.TypeNameHMAC {
-		return ErrMissingPassword
+		return &lib.Error{
+			Message: lib.ErrMissingPassword,
+			Code:    0x107,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if *o.TokenSavePath == "" && *o.TokenSaveType == TokenSaveTypeFile {
-		return ErrMissingKeyPath
+		return &lib.Error{
+			Message: lib.ErrMissingKeyPath,
+			Code:    0x108,
+			Type:    lib.ValidationErrorType,
+		}
 	}
+
 	return nil
 }
 
@@ -100,26 +118,50 @@ func Encrypt(options Options) error {
 	// compressing folder and getting data, compression
 	data, compID, err := compressFolder(options)
 	if err != nil {
-		return err
+		return &lib.Error{
+			Message: fmt.Errorf("compress folder error; %w", err),
+			Code:    0x111,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
 	// create container and get master key and container salt
 	masterKey, containerSalt, err := createContainer(options, data, compID)
 	if err != nil {
-		return err
+		return &lib.Error{
+			Message: fmt.Errorf("create container error; %w", err),
+			Code:    0x112,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
 	integrityProvider, err := createIntegrityProvider(options)
 	if err != nil {
-		return err
+		return &lib.Error{
+			Message: fmt.Errorf("create integrity provider error; %w", err),
+			Code:    0x113,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
 	additionalPassword, err := deriveAdditionalPassword(options, containerSalt)
 	if err != nil {
-		return err
+		return &lib.Error{
+			Message: fmt.Errorf("derive additional password error; %w", err),
+			Code:    0x114,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
-	return generateAndSaveTokens(options, additionalPassword, masterKey, integrityProvider)
+	if err = generateAndSaveTokens(options, additionalPassword, masterKey, integrityProvider); err != nil {
+		return &lib.Error{
+			Message: fmt.Errorf("generate and save tokens error; %w", err),
+			Code:    0x115,
+			Type:    lib.InternalErrorType,
+		}
+	}
+
+	return nil
 }
 
 func compressFolder(options Options) ([]byte, byte, error) {
@@ -133,9 +175,9 @@ func compressFolder(options Options) ([]byte, byte, error) {
 
 		return data, comp.ID(), nil
 	case compression.TypeNameNone:
-		return nil, 0, ErrNoneCompressionUnimplemented
+		return nil, 0, lib.ErrNoneCompressionUnimplemented
 	default:
-		return nil, 0, ErrUnknownCompressionType
+		return nil, 0, lib.ErrUnknownCompressionType
 	}
 }
 
@@ -162,9 +204,9 @@ func createIntegrityProvider(options Options) (integrity.Provider, error) {
 	case integrity.TypeNameHMAC:
 		return hmac.New([]byte(*options.AdditionalPassword)), nil
 	case integrity.TypeNameEd25519:
-		return nil, ErrEd25519Unimplemented
+		return nil, lib.ErrEd25519Unimplemented
 	default:
-		return nil, ErrUnknownIntegrityProvider
+		return nil, lib.ErrUnknownIntegrityProvider
 	}
 }
 
@@ -229,7 +271,7 @@ func closeWithErrorLog(closer io.Closer) {
 }
 
 type tokenList struct {
-	ShareList map[int]string `json:"share_list"`
+	TokenList map[int]string `json:"token_list"`
 }
 
 func generateAndSaveShareTokens(
@@ -250,7 +292,7 @@ func generateAndSaveShareTokens(
 	}
 
 	var jsonTokenList = tokenList{
-		ShareList: make(map[int]string, len(shares)),
+		TokenList: make(map[int]string, len(shares)),
 	}
 	for _, share := range shares {
 		var shareToken []byte
@@ -268,7 +310,7 @@ func generateAndSaveShareTokens(
 			return fmt.Errorf("build token (shares) error; %w", err)
 		}
 
-		jsonTokenList.ShareList[int(share.ID)] = base64.StdEncoding.EncodeToString(shareToken)
+		jsonTokenList.TokenList[int(share.ID)] = base64.StdEncoding.EncodeToString(shareToken)
 	}
 
 	var bytesTokenList []byte

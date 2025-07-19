@@ -2,7 +2,6 @@ package decrypt
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -16,18 +15,6 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 )
 
-var (
-	ErrEmptyShares                  = errors.New("shares list is empty")
-	ErrUnknownTokenType             = errors.New("unknown token type")
-	ErrUnknownIntegrityProvider     = errors.New("unknown integrity provider")
-	ErrEd25519Unimplemented         = errors.New("integrity provider ed25519 unimplemented")
-	ErrNoneCompressionUnimplemented = errors.New("compression type none unimplemented")
-	ErrUnknownCompressionType       = errors.New("unknown compression type")
-	ErrContainerPathRequired        = errors.New("container-path is required")
-	ErrFolderPathRequired           = errors.New("folder-path is required")
-	ErrTokenRequired                = errors.New("token is required")
-)
-
 type Options struct {
 	ContainerPath      *string
 	FolderPath         *string
@@ -37,43 +24,80 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	if *o.ContainerPath == "" {
-		return ErrContainerPathRequired
+		return &lib.Error{
+			Message: lib.ErrContainerPathRequired,
+			Code:    0x001,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if *o.FolderPath == "" {
-		return ErrFolderPathRequired
+		return &lib.Error{
+			Message: lib.ErrFolderPathRequired,
+			Code:    0x002,
+			Type:    lib.ValidationErrorType,
+		}
 	}
 	if *o.Token == "" {
-		return ErrTokenRequired
+		return &lib.Error{
+			Message: lib.ErrTokenRequired,
+			Code:    0x002,
+			Type:    lib.ValidationErrorType,
+		}
 	}
+
 	return nil
 }
 
 func Decrypt(options Options) error {
 	cont, err := openContainer(*options.ContainerPath)
 	if err != nil {
-		return err
+		return &lib.Error{
+			Message: fmt.Errorf("open container error; %w", err),
+			Code:    0x011,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
 	additionalPassword := deriveAdditionalPassword(*options.AdditionalPassword, cont.GetHeader().Salt)
 
 	masterKey, shares, err := parseTokens(*options.Token, additionalPassword)
 	if err != nil {
-		return err
+		return &lib.Error{
+			Message: fmt.Errorf("parse tokens error; %w", err),
+			Code:    0x012,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
 	if len(masterKey) == 0 {
 		masterKey, err = restoreMasterKey(shares, additionalPassword)
 		if err != nil {
-			return err
+			return &lib.Error{
+				Message: fmt.Errorf("restore master key error; %w", err),
+				Code:    0x013,
+				Type:    lib.InternalErrorType,
+			}
 		}
 	}
 
 	content, err := cont.Decrypt(masterKey)
 	if err != nil {
-		return fmt.Errorf("decrypt container error; %w", err)
+		return &lib.Error{
+			Message: fmt.Errorf("decrypt container error; %w", err),
+			Code:    0x014,
+			Type:    lib.InternalErrorType,
+		}
 	}
 
-	return unpackContent(content, *options.FolderPath, cont.GetHeader().CompressionType)
+	if err = unpackContent(content, *options.FolderPath, cont.GetHeader().CompressionType); err != nil {
+		return &lib.Error{
+			Message: fmt.Errorf("unpack content error; %w", err),
+			Code:    0x015,
+			Type:    lib.InternalErrorType,
+		}
+	}
+
+	return nil
 }
 
 func openContainer(containerPath string) (container.Container, error) {
@@ -118,7 +142,7 @@ func parseTokens(tokenString string, additionalPassword []byte) (masterKey []byt
 
 			shares = append(shares, share)
 		default:
-			return nil, nil, ErrUnknownTokenType
+			return nil, nil, lib.ErrUnknownTokenType
 		}
 	}
 
@@ -146,7 +170,7 @@ func createShareFromToken(item token.Token) (shamir.Share, error) {
 
 func restoreMasterKey(shares []shamir.Share, additionalPassword []byte) ([]byte, error) {
 	if len(shares) == 0 {
-		return nil, ErrEmptyShares
+		return nil, lib.ErrEmptyShares
 	}
 
 	integrityProvider, err := createIntegrityProvider(shares[0].ProviderID, additionalPassword)
@@ -169,9 +193,9 @@ func createIntegrityProvider(providerID byte, additionalPassword []byte) (integr
 	case integrity.TypeHMAC:
 		return hmac.New(additionalPassword), nil
 	case integrity.TypeEd25519:
-		return nil, ErrEd25519Unimplemented
+		return nil, lib.ErrEd25519Unimplemented
 	default:
-		return nil, ErrUnknownIntegrityProvider
+		return nil, lib.ErrUnknownIntegrityProvider
 	}
 }
 
@@ -184,8 +208,8 @@ func unpackContent(content []byte, folderPath string, compressionType byte) erro
 
 		return nil
 	case compression.TypeNone:
-		return ErrNoneCompressionUnimplemented
+		return lib.ErrNoneCompressionUnimplemented
 	default:
-		return ErrUnknownCompressionType
+		return lib.ErrUnknownCompressionType
 	}
 }

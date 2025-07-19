@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"github.com/namelesscorp/tvault-core/decrypt"
 	"github.com/namelesscorp/tvault-core/encrypt"
 	"github.com/namelesscorp/tvault-core/integrity"
+	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/token"
 )
 
@@ -109,10 +111,24 @@ func parseAndValidateOptions(flagSet *flag.FlagSet, args []string, validateFunc 
 	if err := flagSet.Parse(args); err != nil {
 		return err
 	}
+
 	return validateFunc()
 }
 
 func handleError(flagSet *flag.FlagSet, operation string, err error) {
 	flagSet.PrintDefaults()
-	log.Fatalf("%s error: %v", operation, err)
+
+	var errLib *lib.Error
+	if ok := errors.As(err, &errLib); !ok {
+		log.Fatalf("operation: %s; error: %v", operation, err)
+		return
+	}
+
+	log.Fatalf(
+		"operation: %s; code: %d; type: %b; message: %s",
+		operation,
+		errLib.Code,
+		errLib.Type,
+		errLib.Message,
+	)
 }
