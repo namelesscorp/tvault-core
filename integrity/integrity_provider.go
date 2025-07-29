@@ -10,6 +10,11 @@ const (
 	TypeNameEd25519 string = "ed25519"
 )
 
+var Types = map[string]struct{}{
+	TypeNameNone: {},
+	TypeNameHMAC: {},
+}
+
 type (
 	Provider interface {
 		Sign(id byte, data []byte) (signature []byte, _ error)

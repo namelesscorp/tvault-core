@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/compression"
@@ -29,7 +29,7 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Printf(usageMessage, commandEncrypt, commandDecrypt, commandVersion, commandInfo)
+		fmt.Printf(usageMessage, commandEncrypt, commandDecrypt, commandVersion, commandInfo)
 		return
 	}
 
@@ -57,10 +57,17 @@ func main() {
 				"- secret sharing: Shamir's Secret Sharing\n" +
 				"- integrity provider: HMAC-SHA256\n" +
 				"- compression type: ZIP\n\n" +
-				"created by trust vault team (nameless corp)\n",
+				"created by trust vault team (nameless)\n",
 		)
 	default:
-		log.Printf("unknown command: %s; use [%s | %s]", os.Args[1], commandEncrypt, commandDecrypt)
+		fmt.Printf(
+			"unknown command: %s; use [%s | %s | %s | %s]",
+			os.Args[1],
+			commandEncrypt,
+			commandDecrypt,
+			commandVersion,
+			commandInfo,
+		)
 	}
 }
 
@@ -69,23 +76,45 @@ func handleEncryptCommand() {
 	encryptOptions := encrypt.Options{
 		ContainerPath:      encryptCmd.String("container-path", "", "path to save container file"),
 		FolderPath:         encryptCmd.String("folder-path", "", "path to folder for encryption"),
-		CompressionType:    encryptCmd.String("compression-type", compression.TypeNameZip, "type of compression [zip]"),
 		Passphrase:         encryptCmd.String("passphrase", "", "passphrase for encrypt container"),
-		TokenSaveType:      encryptCmd.String("token-save-type", encrypt.TokenSaveTypeStdout, "type of token(s) save [file | stdout]"),
-		TokenSavePath:      encryptCmd.String("token-save-path", "", "path to save token(s) (required for -token-save-type=file)"),
-		IsShamirEnabled:    encryptCmd.Bool("is-shamir-enabled", true, "enabling the Shamir algorithm [true | false]"),
-		NumberOfShares:     encryptCmd.Int("number-of-shares", 5, "number of shares (required for -is-shamir-enabled=true)"),
-		Threshold:          encryptCmd.Int("threshold", 3, "threshold of shares (required for -is-shamir-enabled=true)"),
-		IntegrityProvider:  encryptCmd.String("integrity-provider", integrity.TypeNameHMAC, "type of integrity provider [none | hmac]"),
 		AdditionalPassword: encryptCmd.String("additional-password", "", "additional password for integrity provider (required for -integrity-provider=hmac)"),
+
+		CompressionType: encryptCmd.String("compression-type", compression.TypeNameZip, "type of compression [zip]"),
+
+		IntegrityProvider: encryptCmd.String("integrity-provider", integrity.TypeNameHMAC, "type of integrity provider [none | hmac]"),
+
+		Shares:          encryptCmd.Int("shares", 5, "number of shares (required for -is-shamir-enabled=true)"),
+		Threshold:       encryptCmd.Int("threshold", 3, "threshold of shares (required for -is-shamir-enabled=true)"),
+		IsShamirEnabled: encryptCmd.Bool("is-shamir-enabled", true, "enabling the Shamir algorithm [true | false]"),
+
+		TokenWriterType:   encryptCmd.String("token-writer-type", lib.WriterTypeStdout, "type of token(s) writer [file | stdout]"),
+		TokenWriterPath:   encryptCmd.String("token-writer-path", "", "path to write token(s) (required for -token-writer-type=file)"),
+		TokenWriterFormat: encryptCmd.String("token-writer-format", lib.WriterFormatJSON, "format of writer output [plaintext | json]"),
+
+		LogWriterType:   encryptCmd.String("log-writer-type", lib.WriterTypeStdout, "type of log(s) writer [file | stdout]"),
+		LogWriterPath:   encryptCmd.String("log-writer-path", "", "path to write log(s) (required for -log-writer-type=file)"),
+		LogWriterFormat: encryptCmd.String("log-writer-format", lib.WriterFormatJSON, "format of writer output [plaintext | json]"),
 	}
 
-	if err := parseAndValidateOptions(encryptCmd, os.Args[2:], encryptOptions.Validate); err != nil {
-		handleError(encryptCmd, "validate encrypt options", err)
+	var err = parseAndValidateOptions(encryptCmd, os.Args[2:], encryptOptions.Validate)
+
+	writer, closer, _ := lib.NewWriter(
+		*encryptOptions.LogWriterType,
+		*encryptOptions.LogWriterFormat,
+		*encryptOptions.LogWriterPath,
+	)
+	if closer != nil {
+		defer func() {
+			_ = closer.Close()
+		}()
 	}
 
-	if err := encrypt.Encrypt(encryptOptions); err != nil {
-		handleError(encryptCmd, "encryption", err)
+	if err != nil {
+		handleError(encryptCmd, "validate encrypt options", *encryptOptions.LogWriterFormat, writer, err)
+	}
+
+	if err = encrypt.Encrypt(encryptOptions); err != nil {
+		handleError(encryptCmd, "encryption", *encryptOptions.LogWriterFormat, writer, err)
 	}
 }
 
@@ -94,16 +123,37 @@ func handleDecryptCommand() {
 	decryptOptions := decrypt.Options{
 		ContainerPath:      decryptCmd.String("container-path", "", "path to container file"),
 		FolderPath:         decryptCmd.String("folder-path", "", "path to folder for decryption"),
-		Token:              decryptCmd.String("token", "", "token(s) for decrypt container"),
 		AdditionalPassword: decryptCmd.String("additional-password", "", "additional password for integrity provider"),
+
+		TokenReaderType:   decryptCmd.String("token-reader-type", lib.ReaderTypeFlag, "token(s) reader type [file | stdin | flag]"),
+		TokenReaderPath:   decryptCmd.String("token-reader-path", "", "path to token(s) file (required for -token-reader-type=file)"),
+		TokenReaderFlag:   decryptCmd.String("token-reader-flag", "", "token(s) for decrypt container by flag reader (required for -token-reader-type=flag)"),
+		TokenReaderFormat: decryptCmd.String("token-reader-format", lib.WriterFormatJSON, "format of token(s) reader input [plaintext | json]"),
+
+		LogWriterType:   decryptCmd.String("log-writer-type", lib.WriterTypeStdout, "type of log(s) writer [file | stdout]"),
+		LogWriterPath:   decryptCmd.String("log-writer-path", "", "path to write log(s) (required for -log-writer-type=file)"),
+		LogWriterFormat: decryptCmd.String("log-writer-format", lib.WriterFormatJSON, "format of writer output [plaintext | json]"),
 	}
 
-	if err := parseAndValidateOptions(decryptCmd, os.Args[2:], decryptOptions.Validate); err != nil {
-		handleError(decryptCmd, "validate decrypt options", err)
+	var err = parseAndValidateOptions(decryptCmd, os.Args[2:], decryptOptions.Validate)
+
+	writer, closer, _ := lib.NewWriter(
+		*decryptOptions.LogWriterType,
+		*decryptOptions.LogWriterFormat,
+		*decryptOptions.LogWriterPath,
+	)
+	if closer != nil {
+		defer func() {
+			_ = closer.Close()
+		}()
 	}
 
-	if err := decrypt.Decrypt(decryptOptions); err != nil {
-		handleError(decryptCmd, "decryption", err)
+	if err != nil {
+		handleError(decryptCmd, "validate decrypt options", *decryptOptions.LogWriterFormat, writer, err)
+	}
+
+	if err = decrypt.Decrypt(decryptOptions); err != nil {
+		handleError(decryptCmd, "decryption", *decryptOptions.LogWriterFormat, writer, err)
 	}
 }
 
@@ -115,20 +165,34 @@ func parseAndValidateOptions(flagSet *flag.FlagSet, args []string, validateFunc 
 	return validateFunc()
 }
 
-func handleError(flagSet *flag.FlagSet, operation string, err error) {
+func handleError(flagSet *flag.FlagSet, operation, writerFormat string, writer io.Writer, err error) {
 	flagSet.PrintDefaults()
 
 	var errLib *lib.Error
 	if ok := errors.As(err, &errLib); !ok {
-		log.Fatalf("operation: %s; error: %v", operation, err)
+		fmt.Printf("operation: %s; error: %v", operation, err)
+		os.Exit(1)
+
 		return
 	}
 
-	log.Fatalf(
-		"operation: %s; code: %d; type: %b; message: %s",
-		operation,
-		errLib.Code,
-		errLib.Type,
-		errLib.Message,
-	)
+	var message any
+	switch writerFormat {
+	case lib.WriterFormatPlaintext:
+		message = fmt.Sprintf(
+			"operation: %s; code: %d; type: %b; message: %s",
+			operation,
+			errLib.Code,
+			errLib.Type,
+			errLib.Message,
+		)
+	case lib.WriterFormatJSON:
+		message = errLib
+	}
+
+	if _, err = lib.WriteFormatted(writer, writerFormat, message); err != nil {
+		fmt.Printf("failed to write error message; %v", err)
+	}
+
+	os.Exit(1)
 }

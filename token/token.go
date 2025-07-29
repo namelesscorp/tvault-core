@@ -5,8 +5,9 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/namelesscorp/tvault-core/lib"
 )
 
 const (
@@ -20,18 +21,20 @@ const (
 	TypeMaster byte = 0x02
 )
 
-// ErrInvalidTokenVersion - indicates the token's version does not match the expected version.
-var ErrInvalidTokenVersion = errors.New("invalid token version")
-
 // Token - represents a data structure for handling token information with properties like version, ID, type, and provider ID.
-type Token struct {
-	Version    int    `json:"v"`
-	ID         int    `json:"id,omitempty"`
-	Type       int    `json:"t"`
-	Value      string `json:"vl"`
-	Signature  string `json:"s,omitempty"`
-	ProviderID int    `json:"pid"`
-}
+type (
+	Token struct {
+		Version    int    `json:"v"`
+		ID         int    `json:"id,omitempty"`
+		Type       int    `json:"t"`
+		Value      string `json:"vl"`
+		Signature  string `json:"s,omitempty"`
+		ProviderID int    `json:"pid"`
+	}
+	List struct {
+		TokenList []string `json:"token_list"`
+	}
+)
 
 // Build - serializes a Token into a JSON byte slice and encrypts it if a key is provided.
 func Build(token Token, key []byte) ([]byte, error) {
@@ -77,7 +80,7 @@ func Parse(tokenBytes, key []byte) (Token, error) {
 	}
 
 	if result.Version != Version {
-		return Token{}, ErrInvalidTokenVersion
+		return Token{}, lib.ErrInvalidTokenVersion
 	}
 
 	return result, nil

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -46,7 +45,7 @@ func (z *zip) Pack(folder string) ([]byte, error) {
 		}
 		defer func(f *os.File) {
 			if errClose := f.Close(); err != nil {
-				log.Printf("error closing file; %v", errClose)
+				fmt.Printf("error closing file; %v", errClose)
 			}
 		}(f)
 

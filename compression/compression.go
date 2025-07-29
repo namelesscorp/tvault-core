@@ -8,6 +8,10 @@ const (
 	TypeNameZip  string = "zip"
 )
 
+var Types = map[string]struct{}{
+	TypeNameZip: {},
+}
+
 type (
 	Compression interface {
 		Pack(folder string) ([]byte, error)

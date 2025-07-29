@@ -25,10 +25,8 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 
@@ -110,7 +108,7 @@ func (c *container) Create(data, key []byte, compressionType byte) ([]byte, erro
 	}
 	defer func(f *os.File) {
 		if err = f.Close(); err != nil {
-			log.Printf("error closing file; %v", err)
+			fmt.Printf("error closing file; %v", err)
 		}
 	}(f)
 
@@ -137,7 +135,7 @@ func (c *container) Open() error {
 	}
 	defer func(f *os.File) {
 		if err = f.Close(); err != nil {
-			log.Printf("error closing file; %v", err)
+			fmt.Printf("error closing file; %v", err)
 		}
 	}(f)
 
@@ -151,11 +149,11 @@ func (c *container) Open() error {
 	}
 
 	if string(c.header.Signature[:]) != signature {
-		return errors.New("invalid magic signature")
+		return lib.ErrInvalidContainerSignature
 	}
 
 	if c.header.Version != Version {
-		return errors.New("unsupported format version")
+		return lib.ErrInvalidContainerVersion
 	}
 
 	// metadata
