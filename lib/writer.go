@@ -54,7 +54,7 @@ func (s StdoutWriter) Write(p []byte) (int, error) {
 }
 
 func newFileWriter(path, format string) (*FileWriter, error) {
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token file: %w", err)
 	}

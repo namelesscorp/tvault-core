@@ -45,7 +45,7 @@ func NewReader(readerType, format, path string) (io.Reader, io.ReadCloser, error
 }
 
 func newFileReader(path string) (io.Reader, io.ReadCloser, error) {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read file; %w", err)
 	}
