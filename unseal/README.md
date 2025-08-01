@@ -21,19 +21,19 @@ The decrypt package can be used programmatically or through the command-line int
 
 ```shell
 # Using a single master token
-tvault decrypt \
+tvault unseal \
   --container-path=/path/to/container.tvlt \
   --folder-path=/path/to/output \
   --token="AbCdEfGh..."
 
 # Using multiple Shamir shares
-tvault decrypt \
+tvault unseal \
   --container-path=/path/to/container.tvlt \
   --folder-path=/path/to/output \
   --token="AbCdEfGh...|IjKlMnOp...|QrStUvWx..."
 
 # With additional password for HMAC integrity verification
-tvault decrypt \
+tvault unseal \
   --container-path=/path/to/container.tvlt \
   --folder-path=/path/to/output \
   --token="AbCdEfGh..." \

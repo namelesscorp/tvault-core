@@ -20,7 +20,7 @@ The encrypt package can be used programmatically or through the command-line int
 ### Command-Line Usage
 
 ```shell
-tvault encrypt \
+tvault seal \
   --container-path=/path/to/output.tvlt \
   --folder-path=/path/to/folder \
   --passphrase="your-secure-passphrase" \

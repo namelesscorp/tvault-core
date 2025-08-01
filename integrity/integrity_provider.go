@@ -40,3 +40,16 @@ func (n *noneProvider) IsVerify(_ byte, _, _ []byte) (bool, error) {
 func (n *noneProvider) ID() byte {
 	return TypeNone
 }
+
+func ConvertIDToName(id byte) string {
+	switch id {
+	case TypeNone:
+		return TypeNameNone
+	case TypeHMAC:
+		return TypeNameHMAC
+	case TypeEd25519:
+		return TypeNameEd25519
+	default:
+		return ""
+	}
+}

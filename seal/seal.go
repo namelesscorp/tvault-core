@@ -1,4 +1,4 @@
-package encrypt
+package seal
 
 import (
 	"encoding/base64"
@@ -18,50 +18,47 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 )
 
-func Encrypt(options Options) error {
+func Seal(options Options) error {
 	// compressing folder and getting data, compression
-	data, compID, err := compressFolder(options)
+	data, compID, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
 	if err != nil {
 		return lib.InternalErr(0x111, fmt.Errorf("compress folder error; %w", err))
 	}
 
 	// create container and get master key and container salt
-	masterKey, containerSalt, err := createContainer(
+	masterKey, containerSalt, err := CreateContainer(
 		data,
-		[]byte(*options.Passphrase),
+		[]byte(*options.Container.Passphrase),
 		compID,
-		*options.ContainerPath,
+		*options.Container.NewPath,
+		options.Shamir,
 	)
 	if err != nil {
 		return lib.InternalErr(0x112, fmt.Errorf("create container error; %w", err))
 	}
 
-	integrityProvider, err := createIntegrityProvider(*options.IntegrityProvider, *options.AdditionalPassword)
+	integrityProvider, err := CreateIntegrityProviderWithNewPassphrase(options.IntegrityProvider)
 	if err != nil {
 		return lib.InternalErr(0x113, fmt.Errorf("create integrity provider error; %w", err))
 	}
 
-	additionalPassword, err := deriveAdditionalPassword(
-		*options.AdditionalPassword,
-		*options.IntegrityProvider,
-		containerSalt,
-	)
+	integrityProviderPassphrase, err := DeriveIntegrityProviderNewPassphrase(options.IntegrityProvider, containerSalt)
 	if err != nil {
-		return lib.InternalErr(0x114, fmt.Errorf("derive additional password error; %w", err))
+		return lib.InternalErr(0x114, fmt.Errorf("derive integrity provider passhrase error; %w", err))
 	}
 
-	if err = generateAndSaveTokens(options, additionalPassword, masterKey, integrityProvider); err != nil {
+	if err = GenerateAndSaveTokens(options, integrityProviderPassphrase, masterKey, integrityProvider); err != nil {
 		return lib.InternalErr(0x115, fmt.Errorf("generate and save tokens error; %w", err))
 	}
 
 	return nil
 }
 
-func compressFolder(options Options) ([]byte, byte, error) {
-	switch *options.CompressionType {
+func CompressFolder(compressionType, folderPath string) ([]byte, byte, error) {
+	switch compressionType {
 	case compression.TypeNameZip:
 		var comp = zip.New()
-		data, err := comp.Pack(*options.FolderPath)
+		data, err := comp.Pack(folderPath)
 		if err != nil {
 			return nil, 0, fmt.Errorf("compression pack error; %w", err)
 		}
@@ -74,28 +71,46 @@ func compressFolder(options Options) ([]byte, byte, error) {
 	}
 }
 
-func createContainer(data, passphrase []byte, compressionID byte, containerPath string) ([]byte, []byte, error) {
-	cont := container.NewContainer(containerPath, container.Metadata{
-		CreatedAt: time.Now(),
-		Comment:   "created by tvault-core",
-	})
-
-	masterKey, err := cont.Create(data, passphrase, compressionID)
+func CreateContainer(
+	data, passphrase []byte,
+	compressionID byte,
+	containerPath string,
+	shamir *lib.Shamir,
+) ([]byte, []byte, error) {
+	header, err := container.NewHeader(compressionID, uint8(*shamir.Shares), uint8(*shamir.Threshold))
 	if err != nil {
+		return nil, nil, fmt.Errorf("create container header error; %w", err)
+	}
+
+	cont := container.NewContainer(
+		containerPath,
+		nil,
+		container.Metadata{
+			CreatedAt: time.Now(),
+			Comment:   "created by tvault-core",
+		},
+		header,
+	)
+
+	if err = cont.Encrypt(data, passphrase); err != nil {
 		return nil, nil, fmt.Errorf("create container error; %w", err)
+	}
+
+	if err = cont.Write(); err != nil {
+		return nil, nil, fmt.Errorf("write container error; %w", err)
 	}
 
 	var containerHeaderSalt = cont.GetHeader().Salt
 
-	return masterKey, containerHeaderSalt[:], nil
+	return cont.GetMasterKey(), containerHeaderSalt[:], nil
 }
 
-func createIntegrityProvider(integrityProviderName, additionalPassword string) (integrity.Provider, error) {
-	switch integrityProviderName {
+func CreateIntegrityProviderWithNewPassphrase(integrityProvider *lib.IntegrityProvider) (integrity.Provider, error) {
+	switch *integrityProvider.Type {
 	case integrity.TypeNameNone:
 		return integrity.NewNoneProvider(), nil
 	case integrity.TypeNameHMAC:
-		return hmac.New([]byte(additionalPassword)), nil
+		return hmac.New([]byte(*integrityProvider.NewPassphrase)), nil
 	case integrity.TypeNameEd25519:
 		return nil, lib.ErrEd25519Unimplemented
 	default:
@@ -103,10 +118,10 @@ func createIntegrityProvider(integrityProviderName, additionalPassword string) (
 	}
 }
 
-func deriveAdditionalPassword(additionalPassword, integrityProviderName string, salt []byte) ([]byte, error) {
-	if additionalPassword != "" && integrityProviderName == integrity.TypeNameHMAC {
+func DeriveIntegrityProviderNewPassphrase(integrityProvider *lib.IntegrityProvider, salt []byte) ([]byte, error) {
+	if *integrityProvider.NewPassphrase != "" && *integrityProvider.Type == integrity.TypeNameHMAC {
 		return lib.PBKDF2Key(
-			[]byte(additionalPassword),
+			[]byte(*integrityProvider.NewPassphrase),
 			salt,
 			lib.Iterations,
 			lib.KeyLen,
@@ -116,17 +131,13 @@ func deriveAdditionalPassword(additionalPassword, integrityProviderName string, 
 	return nil, nil
 }
 
-func generateAndSaveTokens(
+func GenerateAndSaveTokens(
 	options Options,
-	additionalPassword []byte,
+	integrityProviderPassphrase []byte,
 	masterKey []byte,
 	integrityProvider integrity.Provider,
 ) error {
-	tokenWriter, closer, err := lib.NewWriter(
-		*options.TokenWriterType,
-		*options.TokenWriterFormat,
-		*options.TokenWriterPath,
-	)
+	tokenWriter, closer, err := lib.NewWriter(options.TokenWriter)
 	if err != nil {
 		return err
 	}
@@ -136,22 +147,28 @@ func generateAndSaveTokens(
 		}(closer)
 	}
 
-	if *options.IsShamirEnabled {
-		return saveShareTokens(
-			*options.Shares,
-			*options.Threshold,
-			additionalPassword,
+	if *options.Shamir.IsEnabled {
+		return SaveShareTokens(
+			options.Shamir,
+			integrityProviderPassphrase,
 			masterKey,
 			integrityProvider,
-			*options.TokenWriterFormat,
+			*options.TokenWriter.Format,
 			tokenWriter,
 		)
 	}
-	return saveMasterToken(additionalPassword, masterKey, *options.TokenWriterFormat, tokenWriter)
+
+	return SaveMasterToken(
+		integrityProviderPassphrase,
+		masterKey,
+		*options.TokenWriter.Format,
+		integrityProvider.ID(),
+		tokenWriter,
+	)
 }
 
-func saveShareTokens(
-	numShares, threshold int,
+func SaveShareTokens(
+	shamirOpts *lib.Shamir,
 	additionalPassword []byte,
 	masterKey []byte,
 	integrityProvider integrity.Provider,
@@ -160,8 +177,8 @@ func saveShareTokens(
 ) error {
 	shares, err := shamir.Split(
 		masterKey,
-		numShares,
-		threshold,
+		*shamirOpts.Shares,
+		*shamirOpts.Threshold,
 		integrityProvider,
 	)
 	if err != nil {
@@ -226,18 +243,19 @@ func buildShareToken(share *shamir.Share, additionalPassword []byte) ([]byte, er
 	return shareToken, nil
 }
 
-func saveMasterToken(
+func SaveMasterToken(
 	additionalPassword, masterKey []byte,
-	format string,
+	writerFormat string,
+	integrityProviderID byte,
 	w io.Writer,
 ) error {
-	encodedToken, err := buildMasterToken(additionalPassword, masterKey)
+	encodedToken, err := buildMasterToken(additionalPassword, masterKey, integrityProviderID)
 	if err != nil {
 		return err
 	}
 
 	var msg any
-	switch format {
+	switch writerFormat {
 	case lib.WriterFormatPlaintext:
 		msg = fmt.Sprintf("token:\n%s\n", encodedToken)
 	case lib.WriterFormatJSON:
@@ -246,20 +264,20 @@ func saveMasterToken(
 		return lib.ErrUnknownWriterFormat
 	}
 
-	if _, err = lib.WriteFormatted(w, format, msg); err != nil {
+	if _, err = lib.WriteFormatted(w, writerFormat, msg); err != nil {
 		return fmt.Errorf("failed to write token (master); %w", err)
 	}
 
 	return nil
 }
 
-func buildMasterToken(pwd, masterKey []byte) (string, error) {
+func buildMasterToken(pwd, masterKey []byte, integrityProviderID byte) (string, error) {
 	raw, err := token.Build(
 		token.Token{
 			Version:    token.Version,
 			Type:       int(token.TypeMaster),
 			Value:      hex.EncodeToString(masterKey),
-			ProviderID: int(integrity.TypeNone),
+			ProviderID: int(integrityProviderID),
 		},
 		pwd,
 	)

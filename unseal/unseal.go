@@ -1,4 +1,4 @@
-package decrypt
+package unseal
 
 import (
 	"encoding/hex"
@@ -17,70 +17,61 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 )
 
-func Decrypt(opts Options) error {
-	cont, err := openContainer(*opts.ContainerPath)
+func Unseal(opts Options) error {
+	cont, err := OpenContainer(*opts.Container.CurrentPath)
 	if err != nil {
 		return lib.InternalErr(0x011, fmt.Errorf("open container error; %w", err))
 	}
 
-	addPwd := deriveAdditionalPassword(*opts.AdditionalPassword, cont.GetHeader().Salt)
+	derivedPassphrase := DeriveIntegrityProviderPassphrase(*opts.IntegrityProvider.CurrentPassphrase, cont.GetHeader().Salt)
 
-	tokenString, err := getTokenString(opts)
+	tokenString, err := GetTokenString(opts.TokenReader)
 	if err != nil {
 		return lib.InternalErr(0x012, fmt.Errorf("get token string error; %w", err))
 	}
 
-	masterKey, shares, err := parseTokens(tokenString, *opts.TokenReaderFormat, addPwd)
+	masterKey, shares, err := ParseTokens(tokenString, *opts.TokenReader.Format, derivedPassphrase)
 	if err != nil {
 		return lib.InternalErr(0x013, fmt.Errorf("parse tokens error; %w", err))
 	}
 
 	if len(masterKey) == 0 {
-		masterKey, err = restoreMasterKey(shares, addPwd)
+		masterKey, err = RestoreMasterKey(shares, derivedPassphrase)
 		if err != nil {
 			return lib.InternalErr(0x014, fmt.Errorf("restore master key error; %w", err))
 		}
 	}
 
-	content, err := cont.Decrypt(masterKey)
-	if err != nil {
-		return lib.InternalErr(0x015, fmt.Errorf("decrypt container error; %w", err))
+	if err = cont.Decrypt(masterKey); err != nil {
+		return lib.InternalErr(0x015, fmt.Errorf("unseal container error; %w", err))
 	}
 
-	if err = unpackContent(content, *opts.FolderPath, cont.GetHeader().CompressionType); err != nil {
+	if err = unpackContent(cont.GetData(), *opts.Container.FolderPath, cont.GetHeader().CompressionType); err != nil {
 		return lib.InternalErr(0x016, fmt.Errorf("unpack content error; %w", err))
 	}
 
 	return nil
 }
 
-func openContainer(containerPath string) (container.Container, error) {
-	cont := container.NewContainer(containerPath, container.Metadata{})
-	if err := cont.Open(); err != nil {
+func OpenContainer(containerPath string) (container.Container, error) {
+	cont := container.NewContainer(containerPath, nil, container.Metadata{}, container.Header{})
+	if err := cont.Read(); err != nil {
 		return nil, fmt.Errorf("open container error; %w", err)
 	}
 
 	return cont, nil
 }
 
-func deriveAdditionalPassword(password string, salt [16]byte) []byte {
-	if password == "" {
+func DeriveIntegrityProviderPassphrase(passphrase string, salt [16]byte) []byte {
+	if passphrase == "" {
 		return nil
 	}
 
-	return lib.PBKDF2Key([]byte(password), salt[:], lib.Iterations, lib.KeyLen)
+	return lib.PBKDF2Key([]byte(passphrase), salt[:], lib.Iterations, lib.KeyLen)
 }
 
-func getTokenString(opts Options) (string, error) {
-	if *opts.TokenReaderType == lib.ReaderTypeFlag {
-		return *opts.TokenReaderFlag, nil
-	}
-
-	return readTokens(*opts.TokenReaderType, *opts.TokenReaderFormat, *opts.TokenReaderPath)
-}
-
-func readTokens(readerType, format, path string) (string, error) {
-	reader, closer, err := lib.NewReader(readerType, format, path)
+func GetTokenString(tokenReader *lib.Reader) (string, error) {
+	reader, closer, err := lib.NewReader(tokenReader)
 	if err != nil {
 		return "", fmt.Errorf("get reader error; %w", err)
 	}
@@ -99,7 +90,7 @@ func readTokens(readerType, format, path string) (string, error) {
 	return string(content), nil
 }
 
-func parseTokens(tokenString, tokenFormat string, addPwd []byte) (masterKey []byte, shares []shamir.Share, err error) {
+func ParseTokens(tokenString, tokenFormat string, addPwd []byte) (masterKey []byte, shares []shamir.Share, err error) {
 	switch tokenFormat {
 	case lib.ReaderFormatPlaintext:
 		tokenList := strings.Split(tokenString, "|")
@@ -132,6 +123,13 @@ func parseTokenList(tokenList []string, addPwd []byte) (masterKey []byte, shares
 			if masterKey, err = hex.DecodeString(tok.Value); err != nil {
 				return nil, nil, fmt.Errorf("decode master key error; %w", err)
 			}
+
+			shares = append(shares, shamir.Share{
+				ID:         byte(tok.ID),
+				Value:      masterKey,
+				ProviderID: byte(tok.ProviderID),
+				Signature:  []byte{},
+			})
 		case token.TypeShare:
 			var share shamir.Share
 			if share, err = createShareFromToken(tok); err != nil {
@@ -166,7 +164,7 @@ func createShareFromToken(item token.Token) (shamir.Share, error) {
 	}, nil
 }
 
-func restoreMasterKey(shares []shamir.Share, addPwd []byte) ([]byte, error) {
+func RestoreMasterKey(shares []shamir.Share, addPwd []byte) ([]byte, error) {
 	if len(shares) == 0 {
 		return nil, lib.ErrEmptyShares
 	}

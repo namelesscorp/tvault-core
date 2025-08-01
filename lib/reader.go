@@ -13,8 +13,8 @@ const (
 	ReaderTypeFile  = "file"
 	ReaderTypeStdin = "stdin"
 
-	promptPlainText = "Format plaintext: <token_1>|<token_2>...\nEnter your token(s):"
-	promptJSON      = "Format json: {'token_list': ['token_1', 'token_2']}\nEnter your token(s):"
+	stdoutPlainTextMessage = "Format plaintext: <token_1>|<token_2>...\nEnter your token(s):"
+	stdoutJSONMessage      = "Format json: {'token_list': ['token_1', 'token_2']}\nEnter your token(s):"
 )
 
 var ReaderTypes = map[string]struct{}{
@@ -33,12 +33,14 @@ type (
 	}
 )
 
-func NewReader(readerType, format, path string) (io.Reader, io.ReadCloser, error) {
-	switch readerType {
+func NewReader(opts *Reader) (io.Reader, io.ReadCloser, error) {
+	switch *opts.Type {
 	case ReaderTypeFile:
-		return newFileReader(path)
+		return newFileReader(*opts.Path)
 	case ReaderTypeStdin:
-		return newStdinReader(format)
+		return newStdinReader(*opts.Format)
+	case ReaderTypeFlag:
+		return newFlagReader(*opts.Flag)
 	default:
 		return nil, nil, ErrUnknownReaderType
 	}
@@ -69,12 +71,16 @@ func newStdinReader(format string) (io.Reader, io.ReadCloser, error) {
 	return &byteSliceReader{data: line}, CloserWrapper{Closer: os.Stdin}, nil
 }
 
+func newFlagReader(flag string) (io.Reader, io.ReadCloser, error) {
+	return &byteSliceReader{data: []byte(flag)}, CloserWrapper{}, nil
+}
+
 func endDelimiter(format string) (byte, string, error) {
 	switch format {
 	case ReaderFormatPlaintext:
-		return '\n', promptPlainText, nil
+		return '\n', stdoutPlainTextMessage, nil
 	case ReaderFormatJSON:
-		return '}', promptJSON, nil
+		return '}', stdoutJSONMessage, nil
 	default:
 		return 0, "", ErrUnknownReaderFormat
 	}

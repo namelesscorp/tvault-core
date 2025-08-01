@@ -29,17 +29,17 @@ type (
 	}
 )
 
-func NewWriter(writerType, writerFormat, path string) (io.Writer, io.Closer, error) {
-	switch writerType {
+func NewWriter(opts *Writer) (io.Writer, io.Closer, error) {
+	switch *opts.Type {
 	case WriterTypeFile:
-		w, err := newFileWriter(path, writerFormat)
+		w, err := newFileWriter(*opts.Path, *opts.Format)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		return w, w, nil
 	case WriterTypeStdout:
-		return newStdoutWriter(writerFormat), nil, nil
+		return newStdoutWriter(*opts.Format), nil, nil
 	default:
 		return nil, nil, ErrUnknownWriterType
 	}

@@ -46,7 +46,7 @@ tvault-core [command] [flags]
 
 ```shell
 # Encryption Options (without integrity provider)
-tvault-core encrypt
+tvault-core seal
 -container-path="./example/vault.tvlt"
 -compression-type="zip"
 -folder-path="./example/vault"
@@ -56,7 +56,7 @@ tvault-core encrypt
 -is-shamir-enabled=true
 
 # Encryption Options (with integrity provider)
-tvault-core encrypt
+tvault-core seal
 -container-path="./example/vault.tvlt"
 -compression-type="zip"
 -folder-path="./example/vault"
@@ -67,21 +67,21 @@ tvault-core encrypt
 -additional-password="test-password"
 
 # Decryption Options (Multiple tokens, separate '|')
-tvault-core decrypt
+tvault-core unseal
 -container-path="./example/vault.tvlt"
 -folder-path="./example/vault"
 -token="Qwerty1234...|Ytrewq4321..."
 -additional-password="test-password"
 
 # Decryption Options (Master token)
-tvault-core decrypt
+tvault-core unseal
 -container-path="./example/vault.tvlt"
 -folder-path="./example/vault"
 -token="Qwerty1234..."
 -additional-password="test-password"
 
 # Decryption Options (without integrity provider)
-tvault-core decrypt
+tvault-core unseal
 -container-path="./example/vault.tvlt"
 -folder-path="./example/vault"
 -token="Qwerty1234..."

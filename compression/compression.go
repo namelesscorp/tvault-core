@@ -39,3 +39,14 @@ func (n noneCompression) Unpack(_ []byte, _ string) error {
 func (n noneCompression) ID() byte {
 	return TypeNone
 }
+
+func ConvertIDToName(id byte) string {
+	switch id {
+	case TypeNone:
+		return TypeNameNone
+	case TypeZip:
+		return TypeNameZip
+	default:
+		return ""
+	}
+}
