@@ -17,7 +17,8 @@ func handleSeal(args []string) {
 		fmt.Printf("usage: tvault-core seal <subcommand> [options]\n")
 		fmt.Printf("available subcommands: [%s | %s | %s | %s | %s | %s]\n",
 			subContainer, subCompression, subIntegrityProvider,
-			subShamir, subTokenWriter, subLogWriter)
+			subShamir, subTokenWriter, subLogWriter,
+		)
 		return
 	}
 
@@ -53,13 +54,13 @@ func handleSeal(args []string) {
 		},
 	}
 
-	usedSubcommands := make(map[string]bool)
+	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
-		subcommand := args[i]
-
-		nextSubcmdIdx := findNextSubcommand(args, i+1)
-
-		subcommandArgs := args[i+1 : nextSubcmdIdx]
+		var (
+			subcommand          = args[i]
+			nextSubcommandIndex = findNextSubcommand(args, i+1)
+			subcommandArgs      = args[i+1 : nextSubcommandIndex]
+		)
 
 		usedSubcommands[subcommand] = true
 
@@ -81,11 +82,11 @@ func handleSeal(args []string) {
 			return
 		}
 
-		i = nextSubcmdIdx
+		i = nextSubcommandIndex
 	}
 
 	if !usedSubcommands[subContainer] {
-		fmt.Println("Error: 'container' subcommand is required for seal")
+		fmt.Println("error: 'container' subcommand is required for seal")
 		return
 	}
 
@@ -112,70 +113,76 @@ func handleSeal(args []string) {
 }
 
 func processSealContainer(options *lib.Container, args []string) {
-	flagSet := flag.NewFlagSet(subContainer, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
+
 	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for seal")
 	options.Passphrase = flagSet.String("passphrase", "", "container passphrase")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subContainer, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subContainer, err)
 		os.Exit(1)
 	}
 }
 
 func processSealCompression(options *lib.Compression, args []string) {
-	flagSet := flag.NewFlagSet(subCompression, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subCompression, flag.ExitOnError)
+
 	options.Type = flagSet.String("type", compression.TypeNameZip, "compression type [zip]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subCompression, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subCompression, err)
 		os.Exit(1)
 	}
 }
 
 func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string) {
-	flagSet := flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
+
 	options.Type = flagSet.String("type", integrity.TypeNameHMAC, "type [none | hmac]")
 	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subIntegrityProvider, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subIntegrityProvider, err)
 		os.Exit(1)
 	}
 }
 
 func processSealShamir(options *lib.Shamir, args []string) {
-	flagSet := flag.NewFlagSet(subShamir, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subShamir, flag.ExitOnError)
+
 	options.Shares = flagSet.Int("shares", 5, "number of shares")
 	options.Threshold = flagSet.Int("threshold", 3, "threshold of shares")
 	options.IsEnabled = flagSet.Bool("is-enabled", true, "enable Shamir")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subShamir, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subShamir, err)
 		os.Exit(1)
 	}
 }
 
 func processSealTokenWriter(options *lib.Writer, args []string) {
-	flagSet := flag.NewFlagSet(subTokenWriter, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subTokenWriter, flag.ExitOnError)
+
 	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
 	options.Path = flagSet.String("path", "", "path to file")
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subTokenWriter, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subTokenWriter, err)
 		os.Exit(1)
 	}
 }
 
 func processSealLogWriter(options *lib.Writer, args []string) {
-	flagSet := flag.NewFlagSet(subLogWriter, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subLogWriter, flag.ExitOnError)
+
 	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
 	options.Path = flagSet.String("path", "", "path to file")
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subLogWriter, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subLogWriter, err)
 		os.Exit(1)
 	}
 }

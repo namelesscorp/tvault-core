@@ -63,36 +63,36 @@ const (
 
 // Validation errors
 var (
-	ErrContainerNewPathRequired     = errors.New("container-new-path is required")
-	ErrContainerCurrentPathRequired = errors.New("container-current-path is required")
-	ErrContainerFolderPathRequired  = errors.New("container-folder-path is required")
-	ErrContainerPassphraseRequired  = errors.New("container-passphrase is required")
+	ErrContainerNewPathRequired     = errors.New("container -new-path is required")
+	ErrContainerCurrentPathRequired = errors.New("container -current-path is required")
+	ErrContainerFolderPathRequired  = errors.New("container -folder-path is required")
+	ErrContainerPassphraseRequired  = errors.New("container -passphrase is required")
 
-	ErrIntegrityProviderTypeInvalid           = errors.New("integrity-provider-type must be [none | hmac ]")
-	ErrIntegrityProviderNewPassphraseRequired = errors.New("integrity-provider-new-passphrase is required for -integrity-provider-type=[hmac]")
+	ErrIntegrityProviderTypeInvalid           = errors.New("integrity-provider -type must be [none | hmac ]")
+	ErrIntegrityProviderNewPassphraseRequired = errors.New("integrity-provider -new-passphrase is required for integrity-provider -type=[hmac]")
 
-	ErrCompressionTypeInvalid = errors.New("compression-type must be [zip]")
+	ErrCompressionTypeInvalid = errors.New("compression -type must be [zip]")
 
-	ErrTokenWriterTypeInvalid   = errors.New("token-writer-type must be [file | stdout]")
-	ErrTokenWriterFormatInvalid = errors.New("token-writer-format must be [plaintext | json]")
-	ErrTokenWriterPathRequired  = errors.New("token-writer-path is required for -token-writer-type=[file]")
+	ErrTokenWriterTypeInvalid   = errors.New("token-writer -type must be [file | stdout]")
+	ErrTokenWriterFormatInvalid = errors.New("token-writer -format must be [plaintext | json]")
+	ErrTokenWriterPathRequired  = errors.New("token-writer -path is required for token-writer -type=[file]")
 
-	ErrLogWriterTypeInvalid   = errors.New("log-writer-type must be [file | stdout]")
-	ErrLogWriterFormatInvalid = errors.New("log-writer-format must be [plaintext | json]")
-	ErrLogWriterPathRequired  = errors.New("log-writer-path is required for -log-writer-type=[file]")
+	ErrLogWriterTypeInvalid   = errors.New("log-writer -type must be [file | stdout]")
+	ErrLogWriterFormatInvalid = errors.New("log-writer -format must be [plaintext | json]")
+	ErrLogWriterPathRequired  = errors.New("log-writer -path is required for log-writer -type=[file]")
 
-	ErrTokenReaderTypeInvalid   = errors.New("token-reader-type must be [file | stdin | flag]")
-	ErrTokenReaderFormatInvalid = errors.New("token-reader-format must be [plaintext | json]")
-	ErrTokenReaderPathRequired  = errors.New("token-reader-path is required for -token-reader-type=[file]")
-	ErrTokenReaderFlagRequired  = errors.New("token-reader-flag is required for -token-reader-type=[flag]")
+	ErrTokenReaderTypeInvalid   = errors.New("token-reader -type must be [file | stdin | flag]")
+	ErrTokenReaderFormatInvalid = errors.New("token-reader -format must be [plaintext | json]")
+	ErrTokenReaderPathRequired  = errors.New("token-reader -path is required for token-reader -type=[file]")
+	ErrTokenReaderFlagRequired  = errors.New("token-reader -flag is required for token-reader -type=[flag]")
 
-	ErrShamirSharesEqual0            = errors.New("shamir-shares must be greater than 0")
-	ErrShamirThresholdEqual0         = errors.New("shamir-threshold must be greater than 0")
-	ErrShamirSharesLessThanThreshold = errors.New("shamir-shares must be less than shamir-threshold")
-	ErrShamirSharesLessThan2         = errors.New("shamir-shares must be less than 2")
-	ErrShamirThresholdLessThan2      = errors.New("shamir-threshold must be less than 2")
-	ErrShamirSharesGreaterThan255    = errors.New("shamir-shares must be less than 255")
-	ErrShamirThresholdGreaterThan255 = errors.New("shamir-threshold must be less than 255")
+	ErrShamirSharesEqual0            = errors.New("shamir -shares must be greater than 0")
+	ErrShamirThresholdEqual0         = errors.New("shamir -threshold must be greater than 0")
+	ErrShamirSharesLessThanThreshold = errors.New("shamir -shares must be less than shamir-threshold")
+	ErrShamirSharesLessThan2         = errors.New("shamir -shares must be less than 2")
+	ErrShamirThresholdLessThan2      = errors.New("shamir -threshold must be less than 2")
+	ErrShamirSharesGreaterThan255    = errors.New("shamir -shares must be less than 255")
+	ErrShamirThresholdGreaterThan255 = errors.New("shamir -threshold must be less than 255")
 )
 
 // Internal errors

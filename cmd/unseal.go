@@ -14,7 +14,8 @@ func handleUnseal(args []string) {
 	if len(args) < 1 {
 		fmt.Printf("usage: tvault-core unseal <subcommand> [options]\n")
 		fmt.Printf("available subcommands: [%s | %s | %s | %s]\n",
-			subContainer, subIntegrityProvider, subTokenReader, subLogWriter)
+			subContainer, subIntegrityProvider, subTokenReader, subLogWriter,
+		)
 		return
 	}
 
@@ -43,13 +44,13 @@ func handleUnseal(args []string) {
 		},
 	}
 
-	usedSubcommands := make(map[string]bool)
+	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
-		subcommand := args[i]
-
-		nextSubcmdIdx := findNextSubcommand(args, i+1)
-
-		subcommandArgs := args[i+1 : nextSubcmdIdx]
+		var (
+			subcommand          = args[i]
+			nextSubcommandIndex = findNextSubcommand(args, i+1)
+			subcommandArgs      = args[i+1 : nextSubcommandIndex]
+		)
 
 		usedSubcommands[subcommand] = true
 
@@ -67,11 +68,11 @@ func handleUnseal(args []string) {
 			return
 		}
 
-		i = nextSubcmdIdx
+		i = nextSubcommandIndex
 	}
 
 	if !usedSubcommands[subContainer] {
-		fmt.Println("Error: 'container' subcommand is required for unseal")
+		fmt.Println("error: 'container' subcommand is required for unseal")
 		return
 	}
 
@@ -98,47 +99,51 @@ func handleUnseal(args []string) {
 }
 
 func processUnsealContainer(options *lib.Container, args []string) {
-	flagSet := flag.NewFlagSet(subContainer, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
+
 	options.CurrentPath = flagSet.String("current-path", "", "current path to container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for unseal")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subContainer, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subContainer, err)
 		os.Exit(1)
 	}
 }
 
 func processUnsealIntegrityProvider(options *lib.IntegrityProvider, args []string) {
-	flagSet := flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
+
 	options.CurrentPassphrase = flagSet.String("current-passphrase", "", "current passphrase")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subIntegrityProvider, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subIntegrityProvider, err)
 		os.Exit(1)
 	}
 }
 
 func processUnsealTokenReader(options *lib.Reader, args []string) {
-	flagSet := flag.NewFlagSet(subTokenReader, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subTokenReader, flag.ExitOnError)
+
 	options.Type = flagSet.String("type", lib.ReaderTypeFlag, "type [file | stdin | flag]")
 	options.Path = flagSet.String("path", "", "path to file")
 	options.Flag = flagSet.String("flag", "", "token from flag")
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subTokenReader, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subTokenReader, err)
 		os.Exit(1)
 	}
 }
 
 func processUnsealLogWriter(options *lib.Writer, args []string) {
-	flagSet := flag.NewFlagSet(subLogWriter, flag.ExitOnError)
+	var flagSet = flag.NewFlagSet(subLogWriter, flag.ExitOnError)
+
 	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
 	options.Path = flagSet.String("path", "", "path to file")
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("Failed to parse %s flags: %v\n", subLogWriter, err)
+		fmt.Printf("failed to parse '%s' flags; %v\n", subLogWriter, err)
 		os.Exit(1)
 	}
 }
