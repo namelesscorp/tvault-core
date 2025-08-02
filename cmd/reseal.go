@@ -3,52 +3,79 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/reseal"
 )
 
+const (
+	usageResealTemplate      = "usage: tvault-core reseal <subcommand> [options]\n"
+	subcommandResealTemplate = "available subcommands: [%s | %s | %s | %s | %s]\n"
+)
+
 func handleReseal(args []string) {
 	if len(args) < 1 {
-		fmt.Printf("usage: tvault-core reseal <subcommand> [options]\n")
-		fmt.Printf("available subcommands: [%s | %s | %s | %s | %s]\n",
+		fmt.Printf(usageResealTemplate)
+		fmt.Printf(subcommandResealTemplate,
 			subContainer, subIntegrityProvider, subTokenReader, subTokenWriter, subLogWriter,
 		)
 		return
 	}
 
-	options := reseal.Options{
-		Container: &lib.Container{
-			NewPath:     stringPtr(""),
-			CurrentPath: stringPtr(""),
-			FolderPath:  stringPtr(""),
-			Passphrase:  stringPtr(""),
-		},
-		IntegrityProvider: &lib.IntegrityProvider{
-			Type:              stringPtr(""),
-			CurrentPassphrase: stringPtr(""),
-			NewPassphrase:     stringPtr(""),
-		},
-		TokenReader: &lib.Reader{
-			Type:   stringPtr(lib.ReaderTypeFlag),
-			Path:   stringPtr(""),
-			Flag:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
-		TokenWriter: &lib.Writer{
-			Type:   stringPtr(lib.WriterTypeStdout),
-			Path:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
-		LogWriter: &lib.Writer{
-			Type:   stringPtr(lib.WriterTypeStdout),
-			Path:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
+	var (
+		options         = createDefaultResealOptions()
+		usedSubcommands = parseResealSubcommands(args, &options)
+	)
+	if !usedSubcommands[subContainer] {
+		fmt.Println("error: 'container' subcommand is required for reseal")
+		return
 	}
 
+	if err := options.Validate(); err != nil {
+		handleError(options.LogWriter, commandReseal, err)
+		return
+	}
+
+	if err := reseal.Reseal(options); err != nil {
+		handleError(options.LogWriter, commandReseal, err)
+		return
+	}
+}
+
+func createDefaultResealOptions() reseal.Options {
+	return reseal.Options{
+		Container: &lib.Container{
+			NewPath:     lib.StringPtr(""),
+			CurrentPath: lib.StringPtr(""),
+			FolderPath:  lib.StringPtr(""),
+			Passphrase:  lib.StringPtr(""),
+		},
+		IntegrityProvider: &lib.IntegrityProvider{
+			Type:              lib.StringPtr(""),
+			CurrentPassphrase: lib.StringPtr(""),
+			NewPassphrase:     lib.StringPtr(""),
+		},
+		TokenReader: &lib.Reader{
+			Type:   lib.StringPtr(lib.ReaderTypeFlag),
+			Path:   lib.StringPtr(""),
+			Flag:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+		TokenWriter: &lib.Writer{
+			Type:   lib.StringPtr(lib.WriterTypeStdout),
+			Path:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+		LogWriter: &lib.Writer{
+			Type:   lib.StringPtr(lib.WriterTypeStdout),
+			Path:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+	}
+}
+
+func parseResealSubcommands(args []string, options *reseal.Options) map[string]bool {
 	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
 		var (
@@ -72,37 +99,13 @@ func handleReseal(args []string) {
 			processResealLogWriter(options.LogWriter, subcommandArgs)
 		default:
 			fmt.Printf("unknown subcommand for reseal: '%s'\n", subcommand)
-			return
+			return usedSubcommands
 		}
 
 		i = nextSubcommandIndex
 	}
 
-	if !usedSubcommands[subContainer] {
-		fmt.Println("error: 'container' subcommand is required for reseal")
-		return
-	}
-
-	if err := options.Validate(); err != nil {
-		writer, closer, _ := lib.NewWriter(options.LogWriter)
-		if closer != nil {
-			defer func(closer io.Closer) {
-				_ = closer.Close()
-			}(closer)
-		}
-		handleError(nil, "validate reseal options", *options.LogWriter.Format, writer, err)
-		return
-	}
-
-	if err := reseal.Reseal(options); err != nil {
-		writer, closer, _ := lib.NewWriter(options.LogWriter)
-		if closer != nil {
-			defer func(closer io.Closer) {
-				_ = closer.Close()
-			}(closer)
-		}
-		handleError(nil, commandReseal, *options.LogWriter.Format, writer, err)
-	}
+	return usedSubcommands
 }
 
 func processResealContainer(options *lib.Container, args []string) {

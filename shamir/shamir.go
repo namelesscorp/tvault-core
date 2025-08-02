@@ -16,6 +16,8 @@ type Share struct {
 	Signature  []byte
 }
 
+// Split - divides a secret into n shares with a recovery threshold t using Shamir's Secret Sharing scheme.
+// It signs each share with the provided integrity provider for authenticity and returns the shares.
 func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error) {
 	if t < 2 || t > 255 || n < t || n > 255 {
 		return nil, errors.New("invalid threshold or number of shares")
@@ -63,6 +65,8 @@ func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error)
 	return shares, nil
 }
 
+// Combine reconstructs the original data from a set of shares using Lagrange interpolation and verifies integrity signatures.
+// Requires at least two valid shares and a provider for signature verification to successfully execute.
 func Combine(shares []Share, provider integrity.Provider) ([]byte, error) {
 	if len(shares) < 2 {
 		return nil, errors.New("need at least 2 shares")
@@ -96,6 +100,9 @@ func Combine(shares []Share, provider integrity.Provider) ([]byte, error) {
 	return res, nil
 }
 
+// lagrangeInterpolate - computes the Lagrange interpolation over a finite field GF(256).
+// x is the x-coordinate for interpolation. xVals and yVals must have the same length.
+// Returns the interpolated y-value at x.
 func lagrangeInterpolate(x byte, xVals, yVals []byte) byte {
 	var (
 		res = byte(0)

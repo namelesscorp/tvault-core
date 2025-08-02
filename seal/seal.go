@@ -18,6 +18,7 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 )
 
+// Seal - creates a secure container by compressing a folder, encrypting the data, and saving cryptographic tokens.
 func Seal(options Options) error {
 	// compressing folder and getting data, compression
 	data, compID, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
@@ -87,6 +88,7 @@ func CreateContainer(
 		nil,
 		container.Metadata{
 			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 			Comment:   "created by tvault-core",
 		},
 		header,

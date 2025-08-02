@@ -17,6 +17,7 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 )
 
+// Unseal - decrypts a container, restores its data, and unpacks its content to the specified folder using given options.
 func Unseal(opts Options) error {
 	cont, err := OpenContainer(*opts.Container.CurrentPath)
 	if err != nil {

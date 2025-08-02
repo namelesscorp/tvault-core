@@ -52,6 +52,7 @@ type (
 
 		SetPath(path string)
 		SetMasterKey(key []byte)
+		SetMetadata(metadata Metadata)
 	}
 
 	container struct {
@@ -64,7 +65,6 @@ type (
 	}
 )
 
-// NewContainer - creates a new instance of a container with the specified file path and metadata.
 func NewContainer(
 	path string,
 	masterKey []byte,
@@ -79,7 +79,8 @@ func NewContainer(
 	}
 }
 
-// Encrypt - encrypts input data, storing it along with metadata and header to a specified file.
+// Encrypt encrypts the provided plaintext `data` using a derived AES-GCM key generated from the given `key`.
+// This method initializes the `main key`, generates nonce, seals the data, and stores the ciphertext in `cipherData`.
 func (c *container) Encrypt(data, key []byte) error {
 	if len(c.masterKey) == 0 || c.masterKey == nil {
 		// key derivation
@@ -106,6 +107,7 @@ func (c *container) Encrypt(data, key []byte) error {
 	return nil
 }
 
+// Write - writes the encrypted data, metadata, header of the container to the specified file path.
 func (c *container) Write() error {
 	var (
 		f   *os.File
@@ -158,7 +160,6 @@ func (c *container) Read() error {
 		}
 	}(f)
 
-	// read header
 	if c.header, err = NewHeader(0, 0, 0); err != nil {
 		return fmt.Errorf("init header error; %w", err)
 	}
@@ -175,7 +176,6 @@ func (c *container) Read() error {
 		return lib.ErrInvalidContainerVersion
 	}
 
-	// metadata
 	metaBytes := make([]byte, c.header.MetadataSize)
 	if _, err = io.ReadFull(f, metaBytes); err != nil {
 		return fmt.Errorf("read metadata error; %w", err)
@@ -185,7 +185,6 @@ func (c *container) Read() error {
 		return fmt.Errorf("json unmarshal metadata; %w", err)
 	}
 
-	// ciphertext
 	var ciphertext []byte
 	if ciphertext, err = io.ReadAll(f); err != nil {
 		return fmt.Errorf("read cipher text error; %w", err)
@@ -196,7 +195,7 @@ func (c *container) Read() error {
 	return nil
 }
 
-// Decrypt - decrypts the container's encrypted data using the provided key and returns the plaintext or an error.
+// Decrypt - decrypts the container's cipherData using the provided masterKey and initializes the decrypted data in memory.
 func (c *container) Decrypt(masterKey []byte) error {
 	if len(c.masterKey) == 0 || c.masterKey == nil {
 		c.masterKey = masterKey
@@ -217,7 +216,7 @@ func (c *container) Decrypt(masterKey []byte) error {
 		return fmt.Errorf("open cipher text error; %w", err)
 	}
 
-	return err
+	return nil
 }
 
 // GetHeader - returns the Header associated with the container.
@@ -225,7 +224,8 @@ func (c *container) GetHeader() Header {
 	return c.header
 }
 
-// GetMetadata - returns the Metadata associated with the container. The Metadata contains unencrypted arbitrary information.
+// GetMetadata - returns the Metadata associated with the container.
+// The Metadata contains unencrypted arbitrary information.
 func (c *container) GetMetadata() Metadata {
 	return c.metadata
 }
@@ -235,18 +235,26 @@ func (c *container) GetCipherData() []byte {
 	return c.cipherData
 }
 
+// GetData - returns the decrypted data.
 func (c *container) GetData() []byte {
 	return c.data
 }
 
+// GetMasterKey - return master key used for decrypting container.
 func (c *container) GetMasterKey() []byte {
 	return c.masterKey
 }
 
+// SetPath - sets the file path for the container where it can read or write data.
 func (c *container) SetPath(path string) {
 	c.path = path
 }
 
+// SetMasterKey - sets the master key used for decrypting the container.
 func (c *container) SetMasterKey(key []byte) {
 	c.masterKey = key
+}
+
+func (c *container) SetMetadata(metadata Metadata) {
+	c.metadata = metadata
 }

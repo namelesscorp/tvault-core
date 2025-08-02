@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -104,30 +103,23 @@ func findNextSubcommand(args []string, startIdx int) int {
 	return len(args)
 }
 
-func stringPtr(s string) *string { return &s }
+func handleError(logWriter *lib.Writer, operation string, err error) {
+	writer, closer, _ := lib.NewWriter(logWriter)
+	if closer != nil {
+		defer func(closer io.Closer) {
+			_ = closer.Close()
+		}(closer)
+	}
 
-func intPtr(i int) *int { return &i }
-
-func boolPtr(b bool) *bool { return &b }
-
-func handleError(flagSet *flag.FlagSet, operation, writerFormat string, writer io.Writer, err error) {
 	var errLib *lib.Error
 	if ok := errors.As(err, &errLib); !ok {
-		if flagSet != nil {
-			flagSet.PrintDefaults()
-		}
-
 		fmt.Printf("operation: %s; error: %v", operation, err)
 		os.Exit(1)
 		return
 	}
 
-	if errLib.Type == lib.ValidationErrorType && flagSet != nil {
-		flagSet.PrintDefaults()
-	}
-
 	var message any
-	switch writerFormat {
+	switch *logWriter.Format {
 	case lib.WriterFormatPlaintext:
 		message = fmt.Sprintf(
 			"operation: %s; code: %d; type: %b; message: %s",
@@ -140,7 +132,7 @@ func handleError(flagSet *flag.FlagSet, operation, writerFormat string, writer i
 		message = errLib
 	}
 
-	if _, err = lib.WriteFormatted(writer, writerFormat, message); err != nil {
+	if _, err = lib.WriteFormatted(writer, *logWriter.Format, message); err != nil {
 		fmt.Printf("failed to write error message; %v", err)
 	}
 

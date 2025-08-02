@@ -3,47 +3,74 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/unseal"
 )
 
+const (
+	usageUnsealTemplate       = "usage: tvault-core unseal <subcommand> [options]\n"
+	subcommandsUnsealTemplate = "available subcommands: [%s | %s | %s | %s]\n"
+)
+
 func handleUnseal(args []string) {
 	if len(args) < 1 {
-		fmt.Printf("usage: tvault-core unseal <subcommand> [options]\n")
-		fmt.Printf("available subcommands: [%s | %s | %s | %s]\n",
+		fmt.Printf(usageUnsealTemplate)
+		fmt.Printf(subcommandsUnsealTemplate,
 			subContainer, subIntegrityProvider, subTokenReader, subLogWriter,
 		)
 		return
 	}
 
-	options := unseal.Options{
-		Container: &lib.Container{
-			NewPath:     stringPtr(""),
-			CurrentPath: stringPtr(""),
-			FolderPath:  stringPtr(""),
-			Passphrase:  stringPtr(""),
-		},
-		IntegrityProvider: &lib.IntegrityProvider{
-			Type:              stringPtr(""),
-			CurrentPassphrase: stringPtr(""),
-			NewPassphrase:     stringPtr(""),
-		},
-		TokenReader: &lib.Reader{
-			Type:   stringPtr(lib.ReaderTypeFlag),
-			Path:   stringPtr(""),
-			Flag:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
-		LogWriter: &lib.Writer{
-			Type:   stringPtr(lib.WriterTypeStdout),
-			Path:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
+	var (
+		options         = createDefaultUnsealOptions()
+		usedSubcommands = parseUnsealSubcommands(args, &options)
+	)
+	if !usedSubcommands[subContainer] {
+		fmt.Println("error: 'container' subcommand is required for unseal")
+		return
 	}
 
+	if err := options.Validate(); err != nil {
+		handleError(options.LogWriter, commandUnseal, err)
+		return
+	}
+
+	if err := unseal.Unseal(options); err != nil {
+		handleError(options.LogWriter, commandUnseal, err)
+		return
+	}
+}
+
+func createDefaultUnsealOptions() unseal.Options {
+	return unseal.Options{
+		Container: &lib.Container{
+			NewPath:     lib.StringPtr(""),
+			CurrentPath: lib.StringPtr(""),
+			FolderPath:  lib.StringPtr(""),
+			Passphrase:  lib.StringPtr(""),
+		},
+		IntegrityProvider: &lib.IntegrityProvider{
+			Type:              lib.StringPtr(""),
+			CurrentPassphrase: lib.StringPtr(""),
+			NewPassphrase:     lib.StringPtr(""),
+		},
+		TokenReader: &lib.Reader{
+			Type:   lib.StringPtr(lib.ReaderTypeFlag),
+			Path:   lib.StringPtr(""),
+			Flag:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+		LogWriter: &lib.Writer{
+			Type:   lib.StringPtr(lib.WriterTypeStdout),
+			Path:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+	}
+}
+
+func parseUnsealSubcommands(args []string, options *unseal.Options) map[string]bool {
 	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
 		var (
@@ -65,37 +92,13 @@ func handleUnseal(args []string) {
 			processUnsealLogWriter(options.LogWriter, subcommandArgs)
 		default:
 			fmt.Printf("unknown subcommand for unseal: %s\n", subcommand)
-			return
+			return usedSubcommands
 		}
 
 		i = nextSubcommandIndex
 	}
 
-	if !usedSubcommands[subContainer] {
-		fmt.Println("error: 'container' subcommand is required for unseal")
-		return
-	}
-
-	if err := options.Validate(); err != nil {
-		writer, closer, _ := lib.NewWriter(options.LogWriter)
-		if closer != nil {
-			defer func(closer io.Closer) {
-				_ = closer.Close()
-			}(closer)
-		}
-		handleError(nil, "validate unseal options", *options.LogWriter.Format, writer, err)
-		return
-	}
-
-	if err := unseal.Unseal(options); err != nil {
-		writer, closer, _ := lib.NewWriter(options.LogWriter)
-		if closer != nil {
-			defer func(closer io.Closer) {
-				_ = closer.Close()
-			}(closer)
-		}
-		handleError(nil, commandUnseal, *options.LogWriter.Format, writer, err)
-	}
+	return usedSubcommands
 }
 
 func processUnsealContainer(options *lib.Container, args []string) {

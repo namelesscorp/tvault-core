@@ -39,3 +39,12 @@ Thumbs.db
 
 # Local OS configurations
 /.vscode/
+
+# System
+*.txt
+*.json
+*.tvlt
+!example/*/*.txt
+!example/*/*.tvlt
+!example/*.txt
+!example/*

@@ -19,6 +19,7 @@ func New(key []byte) integrity.Provider {
 	}
 }
 
+// Sign - generates an HMAC signature for the given id and data using the hmac's secret key.
 func (h *hmac) Sign(id byte, data []byte) ([]byte, error) {
 	newHmac := cryptoHMAC.New(sha256.New, h.key)
 	newHmac.Write([]byte{id})
@@ -30,6 +31,7 @@ func (h *hmac) Sign(id byte, data []byte) ([]byte, error) {
 	return mac[:], nil
 }
 
+// IsVerify - verifies if the provided signature matches the expected HMAC for the given id and data, returning a boolean result.
 func (h *hmac) IsVerify(id byte, data, signature []byte) (bool, error) {
 	expectedMac, err := h.Sign(id, data)
 	if err != nil {

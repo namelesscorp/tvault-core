@@ -3,76 +3,74 @@ package reseal
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/namelesscorp/tvault-core/compression"
+	"github.com/namelesscorp/tvault-core/container"
 	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/seal"
+	"github.com/namelesscorp/tvault-core/shamir"
 	"github.com/namelesscorp/tvault-core/unseal"
 )
 
+// Reseal - processes a sealed container by decrypting, modifying, and re-encrypting it with updated metadata and tokens.
 func Reseal(opts Options) error {
-	container, err := unseal.OpenContainer(*opts.Container.CurrentPath)
+	currentContainer, err := unseal.OpenContainer(*opts.Container.CurrentPath)
 	if err != nil {
-		return lib.InternalErr(0x011, fmt.Errorf("open container error; %w", err))
+		return lib.InternalErr(0x211, fmt.Errorf("open container error; %w", err))
 	}
+
+	currentContainer.SetMetadata(container.Metadata{
+		CreatedAt: currentContainer.GetMetadata().CreatedAt,
+		UpdatedAt: time.Now(),
+		Comment:   currentContainer.GetMetadata().Comment,
+	})
 
 	derivedPassphrase := unseal.DeriveIntegrityProviderPassphrase(
 		*opts.IntegrityProvider.CurrentPassphrase,
-		container.GetHeader().Salt,
+		currentContainer.GetHeader().Salt,
 	)
 
 	tokenString, err := unseal.GetTokenString(opts.TokenReader)
 	if err != nil {
-		return lib.InternalErr(0x012, fmt.Errorf("get token string error; %w", err))
+		return lib.InternalErr(0x212, fmt.Errorf("get token string error; %w", err))
 	}
 
 	masterKey, shares, err := unseal.ParseTokens(tokenString, *opts.TokenReader.Format, derivedPassphrase)
 	if err != nil {
-		return lib.InternalErr(0x013, fmt.Errorf("parse tokens error; %w", err))
+		return lib.InternalErr(0x213, fmt.Errorf("parse tokens error; %w", err))
 	}
 	if len(masterKey) == 0 {
 		masterKey, err = unseal.RestoreMasterKey(shares, derivedPassphrase)
 		if err != nil {
-			return lib.InternalErr(0x014, fmt.Errorf("restore master key error; %w", err))
+			return lib.InternalErr(0x214, fmt.Errorf("restore master key error; %w", err))
 		}
 	}
 
 	data, _, err := seal.CompressFolder(
-		compression.ConvertIDToName(container.GetHeader().CompressionType),
+		compression.ConvertIDToName(currentContainer.GetHeader().CompressionType),
 		*opts.Container.FolderPath,
 	)
 	if err != nil {
-		return lib.InternalErr(0x111, fmt.Errorf("compress folder error; %w", err))
+		return lib.InternalErr(0x215, fmt.Errorf("compress folder error; %w", err))
 	}
 
-	container.SetMasterKey(masterKey)
-	if err = container.Encrypt(data, nil); err != nil {
-		return lib.InternalErr(0x112, fmt.Errorf("encrypt container error; %w", err))
+	currentContainer.SetMasterKey(masterKey)
+	if err = currentContainer.Encrypt(data, nil); err != nil {
+		return lib.InternalErr(0x216, fmt.Errorf("encrypt container error; %w", err))
 	}
 
-	targetContainerPath := *opts.Container.CurrentPath
-	if *opts.Container.NewPath != "" && *opts.Container.NewPath != targetContainerPath {
-		targetContainerPath = *opts.Container.NewPath
-	}
-	container.SetPath(targetContainerPath)
-
-	if err = container.Write(); err != nil {
-		return lib.InternalErr(0x113, fmt.Errorf("write container error; %w", err))
+	currentContainer.SetPath(getContainerPath(opts.Container))
+	if err = currentContainer.Write(); err != nil {
+		return lib.InternalErr(0x217, fmt.Errorf("write container error; %w", err))
 	}
 
-	providerName := integrity.ConvertIDToName(shares[0].ProviderID)
-	salt := container.GetHeader().Salt
-
-	passphrase := *opts.IntegrityProvider.CurrentPassphrase
-	if *opts.IntegrityProvider.NewPassphrase != "" && *opts.IntegrityProvider.NewPassphrase != passphrase {
-		passphrase = *opts.IntegrityProvider.NewPassphrase
-	}
-
+	salt := currentContainer.GetHeader().Salt
 	integrityProvider, additionalPassword, err := newIntegrityArtifacts(
 		&lib.IntegrityProvider{
-			Type:          &providerName,
-			NewPassphrase: &passphrase,
+			Type:          getProviderNamePtr(shares),
+			NewPassphrase: getIntegrityProviderPassphrasePtr(opts.IntegrityProvider),
 		},
 		salt[:],
 	)
@@ -93,8 +91,8 @@ func Reseal(opts Options) error {
 	switch {
 	case len(shares) > 1:
 		var (
-			numShares = int(container.GetHeader().Shares)
-			threshold = int(container.GetHeader().Threshold)
+			numShares = int(currentContainer.GetHeader().Shares)
+			threshold = int(currentContainer.GetHeader().Threshold)
 		)
 		return seal.SaveShareTokens(
 			&lib.Shamir{
@@ -116,10 +114,42 @@ func Reseal(opts Options) error {
 			tokenWriter,
 		)
 	}
+
 	return nil
 }
 
-func newIntegrityArtifacts(integrityProviderOpts *lib.IntegrityProvider, salt []byte) (integrity.Provider, []byte, error) {
+func getProviderNamePtr(shares []shamir.Share) *string {
+	if len(shares) == 0 {
+		return nil
+	}
+
+	return lib.StringPtr(integrity.ConvertIDToName(shares[0].ProviderID))
+}
+
+func getContainerPath(containerOpts *lib.Container) string {
+	var targetContainerPath = *containerOpts.CurrentPath
+	if *containerOpts.NewPath != "" && *containerOpts.NewPath != targetContainerPath {
+		targetContainerPath = *containerOpts.NewPath
+	}
+
+	return targetContainerPath
+}
+
+func getIntegrityProviderPassphrasePtr(
+	integrityProviderOpts *lib.IntegrityProvider,
+) *string {
+	var passphrase = *integrityProviderOpts.CurrentPassphrase
+	if *integrityProviderOpts.NewPassphrase != "" && *integrityProviderOpts.NewPassphrase != passphrase {
+		passphrase = *integrityProviderOpts.NewPassphrase
+	}
+
+	return &passphrase
+}
+
+func newIntegrityArtifacts(
+	integrityProviderOpts *lib.IntegrityProvider,
+	salt []byte,
+) (integrity.Provider, []byte, error) {
 	ip, err := seal.CreateIntegrityProviderWithNewPassphrase(integrityProviderOpts)
 	if err != nil {
 		return nil, nil, lib.InternalErr(0x113, fmt.Errorf("create integrity provider error; %w", err))

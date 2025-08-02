@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/compression"
@@ -12,48 +11,76 @@ import (
 	"github.com/namelesscorp/tvault-core/seal"
 )
 
+const (
+	usageSealTemplate      = "usage: tvault-core seal <subcommand> [options]\n"
+	subcommandSealTemplate = "available subcommands: [%s | %s | %s | %s | %s | %s]\n"
+)
+
 func handleSeal(args []string) {
 	if len(args) < 1 {
-		fmt.Printf("usage: tvault-core seal <subcommand> [options]\n")
-		fmt.Printf("available subcommands: [%s | %s | %s | %s | %s | %s]\n",
+		fmt.Printf(usageSealTemplate)
+		fmt.Printf(subcommandSealTemplate,
 			subContainer, subCompression, subIntegrityProvider,
 			subShamir, subTokenWriter, subLogWriter,
 		)
 		return
 	}
 
-	options := seal.Options{
-		Container: &lib.Container{
-			NewPath:     stringPtr(""),
-			CurrentPath: stringPtr(""),
-			FolderPath:  stringPtr(""),
-			Passphrase:  stringPtr(""),
-		},
-		Compression: &lib.Compression{
-			Type: stringPtr(compression.TypeNameZip),
-		},
-		IntegrityProvider: &lib.IntegrityProvider{
-			Type:              stringPtr(integrity.TypeNameHMAC),
-			CurrentPassphrase: stringPtr(""),
-			NewPassphrase:     stringPtr(""),
-		},
-		Shamir: &lib.Shamir{
-			Shares:    intPtr(5),
-			Threshold: intPtr(3),
-			IsEnabled: boolPtr(true),
-		},
-		TokenWriter: &lib.Writer{
-			Type:   stringPtr(lib.WriterTypeStdout),
-			Path:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
-		LogWriter: &lib.Writer{
-			Type:   stringPtr(lib.WriterTypeStdout),
-			Path:   stringPtr(""),
-			Format: stringPtr(lib.WriterFormatJSON),
-		},
+	var (
+		options         = createDefaultSealOptions()
+		usedSubcommands = parseSealSubcommands(args, &options)
+	)
+	if !usedSubcommands[subContainer] {
+		fmt.Println("error: 'container' subcommand is required for seal")
+		return
 	}
 
+	if err := options.Validate(); err != nil {
+		handleError(options.LogWriter, commandSeal, err)
+		return
+	}
+
+	if err := seal.Seal(options); err != nil {
+		handleError(options.LogWriter, commandSeal, err)
+		return
+	}
+}
+
+func createDefaultSealOptions() seal.Options {
+	return seal.Options{
+		Container: &lib.Container{
+			NewPath:     lib.StringPtr(""),
+			CurrentPath: lib.StringPtr(""),
+			FolderPath:  lib.StringPtr(""),
+			Passphrase:  lib.StringPtr(""),
+		},
+		Compression: &lib.Compression{
+			Type: lib.StringPtr(compression.TypeNameZip),
+		},
+		IntegrityProvider: &lib.IntegrityProvider{
+			Type:              lib.StringPtr(integrity.TypeNameHMAC),
+			CurrentPassphrase: lib.StringPtr(""),
+			NewPassphrase:     lib.StringPtr(""),
+		},
+		Shamir: &lib.Shamir{
+			Shares:    lib.IntPtr(5),
+			Threshold: lib.IntPtr(3),
+			IsEnabled: lib.BoolPtr(true),
+		},
+		TokenWriter: &lib.Writer{
+			Type:   lib.StringPtr(lib.WriterTypeStdout),
+			Path:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+		LogWriter: &lib.Writer{
+			Type:   lib.StringPtr(lib.WriterTypeStdout),
+			Path:   lib.StringPtr(""),
+			Format: lib.StringPtr(lib.WriterFormatJSON),
+		},
+	}
+}
+
+func parseSealSubcommands(args []string, options *seal.Options) map[string]bool {
 	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
 		var (
@@ -79,37 +106,13 @@ func handleSeal(args []string) {
 			processSealLogWriter(options.LogWriter, subcommandArgs)
 		default:
 			fmt.Printf("unknown subcommand for seal: %s\n", subcommand)
-			return
+			return usedSubcommands
 		}
 
 		i = nextSubcommandIndex
 	}
 
-	if !usedSubcommands[subContainer] {
-		fmt.Println("error: 'container' subcommand is required for seal")
-		return
-	}
-
-	if err := options.Validate(); err != nil {
-		writer, closer, _ := lib.NewWriter(options.LogWriter)
-		if closer != nil {
-			defer func(closer io.Closer) {
-				_ = closer.Close()
-			}(closer)
-		}
-		handleError(nil, "validate seal options", *options.LogWriter.Format, writer, err)
-		return
-	}
-
-	if err := seal.Seal(options); err != nil {
-		writer, closer, _ := lib.NewWriter(options.LogWriter)
-		if closer != nil {
-			defer func(closer io.Closer) {
-				_ = closer.Close()
-			}(closer)
-		}
-		handleError(nil, commandSeal, *options.LogWriter.Format, writer, err)
-	}
+	return usedSubcommands
 }
 
 func processSealContainer(options *lib.Container, args []string) {

@@ -33,7 +33,7 @@ func init() {
 	logTable[0] = 0 // explicitly set log(0), but avoid using it
 }
 
-// Direct multiplication in Galois field without using tables
+// gfMultiply - Direct multiplication in Galois field without using tables
 func gfMultiply(a, b byte) byte {
 	var p byte
 	for i := 0; i < 8; i++ {
