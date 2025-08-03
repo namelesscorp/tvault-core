@@ -1,7 +1,6 @@
 package reseal
 
 import (
-	"fmt"
 	"io"
 	"time"
 
@@ -18,7 +17,13 @@ import (
 func Reseal(opts Options) error {
 	currentContainer, err := unseal.OpenContainer(*opts.Container.CurrentPath)
 	if err != nil {
-		return lib.InternalErr(0x211, fmt.Errorf("open container error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealOpenContainerError,
+			lib.ErrMessageResealOpenContainerError,
+			"",
+			err,
+		)
 	}
 
 	currentContainer.SetMetadata(container.Metadata{
@@ -34,17 +39,35 @@ func Reseal(opts Options) error {
 
 	tokenString, err := unseal.GetTokenString(opts.TokenReader)
 	if err != nil {
-		return lib.InternalErr(0x212, fmt.Errorf("get token string error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealGetTokenStringError,
+			lib.ErrMessageResealGetTokenStringError,
+			"",
+			err,
+		)
 	}
 
 	masterKey, shares, err := unseal.ParseTokens(tokenString, *opts.TokenReader.Format, derivedPassphrase)
 	if err != nil {
-		return lib.InternalErr(0x213, fmt.Errorf("parse tokens error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealParseTokensError,
+			lib.ErrMessageResealParseTokensError,
+			"",
+			err,
+		)
 	}
 	if len(masterKey) == 0 {
 		masterKey, err = unseal.RestoreMasterKey(shares, derivedPassphrase)
 		if err != nil {
-			return lib.InternalErr(0x214, fmt.Errorf("restore master key error; %w", err))
+			return lib.InternalErr(
+				lib.CategoryReseal,
+				lib.ErrCodeResealRestoreMasterKeyError,
+				lib.ErrMessageResealRestoreMasterKeyError,
+				"",
+				err,
+			)
 		}
 	}
 
@@ -53,17 +76,35 @@ func Reseal(opts Options) error {
 		*opts.Container.FolderPath,
 	)
 	if err != nil {
-		return lib.InternalErr(0x215, fmt.Errorf("compress folder error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealCompressFolderError,
+			lib.ErrMessageResealCompressFolderError,
+			"",
+			err,
+		)
 	}
 
 	currentContainer.SetMasterKey(masterKey)
 	if err = currentContainer.Encrypt(data, nil); err != nil {
-		return lib.InternalErr(0x216, fmt.Errorf("encrypt container error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealEncryptContainerError,
+			lib.ErrMessageResealEncryptContainerError,
+			"",
+			err,
+		)
 	}
 
 	currentContainer.SetPath(getContainerPath(opts.Container))
 	if err = currentContainer.Write(); err != nil {
-		return lib.InternalErr(0x217, fmt.Errorf("write container error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealWriteContainerError,
+			lib.ErrMessageResealWriteContainerError,
+			"",
+			err,
+		)
 	}
 
 	salt := currentContainer.GetHeader().Salt
@@ -152,12 +193,24 @@ func newIntegrityArtifacts(
 ) (integrity.Provider, []byte, error) {
 	ip, err := seal.CreateIntegrityProviderWithNewPassphrase(integrityProviderOpts)
 	if err != nil {
-		return nil, nil, lib.InternalErr(0x113, fmt.Errorf("create integrity provider error; %w", err))
+		return nil, nil, lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealCreateIntegrityProviderError,
+			lib.ErrMessageResealCreateIntegrityProviderError,
+			"",
+			err,
+		)
 	}
 
 	derivedPassphrase, err := seal.DeriveIntegrityProviderNewPassphrase(integrityProviderOpts, salt)
 	if err != nil {
-		return nil, nil, lib.InternalErr(0x114, fmt.Errorf("derive additional password error; %w", err))
+		return nil, nil, lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealDeriveAdditionalPasswordError,
+			lib.ErrMessageResealDeriveAdditionalPasswordError,
+			"",
+			err,
+		)
 	}
 
 	return ip, derivedPassphrase, nil

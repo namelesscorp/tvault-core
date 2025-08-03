@@ -33,12 +33,12 @@ func handleSeal(args []string) {
 	}
 
 	if err := options.Validate(); err != nil {
-		handleError(options.LogWriter, commandSeal, err)
+		lib.ErrorFormatted(options.LogWriter, commandSeal, err)
 		return
 	}
 
 	if err := seal.Seal(options); err != nil {
-		handleError(options.LogWriter, commandSeal, err)
+		lib.ErrorFormatted(options.LogWriter, commandSeal, err)
 		return
 	}
 }

@@ -3,14 +3,14 @@ package lib
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type ErrorType byte
 
 const (
 	ErrorTypeValidation ErrorType = 0x000
-	ErrorTypeInternal   ErrorType = 0x010
-	ErrorTypeAuth       ErrorType = 0x020
+	ErrorTypeInternal   ErrorType = 0x020
 	ErrorTypeIO         ErrorType = 0x030
 	ErrorTypeCrypto     ErrorType = 0x040
 	ErrorTypeFormat     ErrorType = 0x050
@@ -19,14 +19,14 @@ const (
 type ErrorCategory uint16
 
 const (
-	CategoryGeneral     ErrorCategory = 0x000
-	CategoryUnseal      ErrorCategory = 0x100
-	CategorySeal        ErrorCategory = 0x200
-	CategoryReseal      ErrorCategory = 0x300
-	CategoryCompression ErrorCategory = 0x400
-	CategoryIntegrity   ErrorCategory = 0x500
-	CategoryToken       ErrorCategory = 0x600
-	CategoryShamir      ErrorCategory = 0x700
+	CategoryUnseal      ErrorCategory = 0x000
+	CategorySeal        ErrorCategory = 0x100
+	CategoryReseal      ErrorCategory = 0x200
+	CategoryCompression ErrorCategory = 0x300
+	CategoryIntegrity   ErrorCategory = 0x400
+	CategoryToken       ErrorCategory = 0x500
+	CategoryShamir      ErrorCategory = 0x600
+	CategoryContainer   ErrorCategory = 0x700
 )
 
 type ErrorCode uint16
@@ -57,13 +57,183 @@ const (
 	ErrCodeLogWriterPathRequired                  ErrorCode = 0x0022
 	ErrCodeLogWriterFormatInvalid                 ErrorCode = 0x0023
 
-	ErrCodeGetFilePathRelative ErrorCode = 0x0024
+	ErrCodeGetFilePathRelative  ErrorCode = 0x0024
+	ErrCodeOpenFileError        ErrorCode = 0x0025
+	ErrCodeCreateZipError       ErrorCode = 0x0026
+	ErrCodeIOCopyError          ErrorCode = 0x0027
+	ErrCodeWalkDirError         ErrorCode = 0x0028
+	ErrCodeCloseZipError        ErrorCode = 0x0029
+	ErrCodeCreateZipReaderError ErrorCode = 0x0030
+	ErrCodeCreateDirectoryError ErrorCode = 0x0031
+	ErrCodeOSOpenFileError      ErrorCode = 0x0032
+	ErrCodeCloseFileError       ErrorCode = 0x0033
+	ErrCodeReaderCloserError    ErrorCode = 0x0034
+
+	ErrCodeHMACWriteIDError   ErrorCode = 0x0035
+	ErrCodeHMACWriteDataError ErrorCode = 0x0036
+	ErrCodeHMACSignError      ErrorCode = 0x0037
+
+	ErrCodeRandReadSaltError          ErrorCode = 0x0038
+	ErrCodeRandReadNonceError         ErrorCode = 0x0039
+	ErrCodeCreateNewCipherError       ErrorCode = 0x0040
+	ErrCodeCreateNewGCMError          ErrorCode = 0x0041
+	ErrCodeGenerateNonceError         ErrorCode = 0x0042
+	ErrCodeContainerOpenFileError     ErrorCode = 0x0043
+	ErrCodeJSONMarshalMetadataError   ErrorCode = 0x0044
+	ErrCodeMetadataSizeExceedsError   ErrorCode = 0x0045
+	ErrCodeWriteHeaderBinaryError     ErrorCode = 0x0046
+	ErrCodeWriteMetadataError         ErrorCode = 0x0047
+	ErrCodeWriteCipherTextError       ErrorCode = 0x0048
+	ErrCodeInitHeaderError            ErrorCode = 0x0049
+	ErrCodeReadBinaryError            ErrorCode = 0x0050
+	ErrCodeReadMetadataError          ErrorCode = 0x0051
+	ErrCodeJSONUnmarshalMetadataError ErrorCode = 0x0052
+	ErrCodeReadCipherTextError        ErrorCode = 0x0053
+	ErrCodeOpenCipherTextError        ErrorCode = 0x0054
+
+	ErrCodeTokenMarshalJSONError   ErrorCode = 0x0055
+	ErrCodeTokenUnmarshalJSONError ErrorCode = 0x0056
+	ErrCodeTokenCreateCipherError  ErrorCode = 0x0057
+	ErrCodeTokenDecodeBase64Error  ErrorCode = 0x0058
+
+	ErrCodeShamirInvalidThresholdOrShares ErrorCode = 0x0059
+	ErrCodeShamirIOReadFullError          ErrorCode = 0x0060
+	ErrCodeShamirSignShareError           ErrorCode = 0x0061
+	ErrCodeShamirVerifySignatureError     ErrorCode = 0x0062
+	ErrCodeShamirVerifySignatureFailed    ErrorCode = 0x0063
+
+	ErrCodeUnsealOpenContainerError        ErrorCode = 0x0064
+	ErrCodeUnsealGetTokenStringError       ErrorCode = 0x0065
+	ErrCodeUnsealParseTokensError          ErrorCode = 0x0066
+	ErrCodeUnsealRestoreMasterKeyError     ErrorCode = 0x0067
+	ErrCodeUnsealContainerError            ErrorCode = 0x0068
+	ErrCodeUnsealUnpackContentError        ErrorCode = 0x0069
+	ErrCodeUnsealGetReaderError            ErrorCode = 0x0070
+	ErrCodeUnsealReadAllError              ErrorCode = 0x0071
+	ErrCodeUnsealInvalidTokenFormatError   ErrorCode = 0x0072
+	ErrCodeUnsealUnmarshalTokenListError   ErrorCode = 0x0073
+	ErrCodeUnsealParseTokenError           ErrorCode = 0x0074
+	ErrCodeUnsealDecodeMasterKeyError      ErrorCode = 0x0075
+	ErrCodeUnsealDecodeShareValueError     ErrorCode = 0x0076
+	ErrCodeUnsealDecodeShareSignatureError ErrorCode = 0x0077
+	ErrCodeUnsealCompressionUnpackError    ErrorCode = 0x0078
+
+	ErrCodeSealCompressFolderError                    ErrorCode = 0x0079
+	ErrCodeSealCreateContainerError                   ErrorCode = 0x0080
+	ErrCodeSealCreateIntegrityProviderError           ErrorCode = 0x0081
+	ErrCodeSealDeriveIntegrityProviderPassphraseError ErrorCode = 0x0082
+	ErrCodeSealGenerateAndSaveTokensError             ErrorCode = 0x0083
+	ErrCodeSealCompressionPackError                   ErrorCode = 0x0084
+	ErrCodeSealCreateContainerHeaderError             ErrorCode = 0x0085
+	ErrCodeSealEncryptContainerError                  ErrorCode = 0x0086
+	ErrCodeSealWriteContainerError                    ErrorCode = 0x0087
+	ErrCodeSealShamirSplitError                       ErrorCode = 0x0088
+	ErrCodeSealWriteTokensShareError                  ErrorCode = 0x0089
+	ErrCodeSealBuildShareTokenError                   ErrorCode = 0x0090
+	ErrCodeSealWriteTokenMasterError                  ErrorCode = 0x0091
+	ErrCodeSealBuildMasterTokenError                  ErrorCode = 0x0092
+
+	ErrCodeResealOpenContainerError            ErrorCode = 0x0093
+	ErrCodeResealGetTokenStringError           ErrorCode = 0x0094
+	ErrCodeResealParseTokensError              ErrorCode = 0x0095
+	ErrCodeResealRestoreMasterKeyError         ErrorCode = 0x0096
+	ErrCodeResealCompressFolderError           ErrorCode = 0x0097
+	ErrCodeResealEncryptContainerError         ErrorCode = 0x0098
+	ErrCodeResealWriteContainerError           ErrorCode = 0x0099
+	ErrCodeResealCreateIntegrityProviderError  ErrorCode = 0x00100
+	ErrCodeResealDeriveAdditionalPasswordError ErrorCode = 0x00101
 )
 
 const (
 	ErrSubcommandRequired = "'%s' subcommand is required for %s"
 	ErrFailedParseFlags   = "failed to parse '%s' flags; %v"
 	ErrUnknownSubcommand  = "unknown subcommand for reseal: '%s'"
+
+	ErrMessageGetFilePathRelative  = "failed to get relative path"
+	ErrMessageOpenFileError        = "open file error"
+	ErrMessageCreateZipError       = "create zip error"
+	ErrMessageIOCopyError          = "io copy error"
+	ErrMessageWalkDirError         = "walk dir error"
+	ErrMessageCloseZipError        = "close zip error"
+	ErrMessageCreateZipReaderError = "create new zip reader error"
+	ErrMessageCreateDirectoryError = "create directory error"
+	ErrMessageOSOpenFileError      = "os open file error"
+	ErrMessageCloseFileError       = "close file error"
+	ErrMessageReaderCloserError    = "reader closer error"
+
+	ErrMessageHMACWriteIDError   = "error writing ID to HMAC"
+	ErrMessageHMACWriteDataError = "error writing data to HMAC"
+	ErrMessageHMACSignError      = "error signing data with HMAC"
+
+	ErrMessageRandReadSaltError          = "rand read salt error"
+	ErrMessageRandReadNonceError         = "rand read nonce error"
+	ErrMessageCreateNewCipherError       = "create new cipher error"
+	ErrMessageCreateNewGCMError          = "create new gcm error"
+	ErrMessageGenerateNonceError         = "failed to generate nonce"
+	ErrMessageContainerOpenFileError     = "open file error"
+	ErrMessageJSONMarshalMetadataError   = "json marshal metadata error"
+	ErrMessageMetadataSizeExceedsError   = "metadata size exceeds maximum allowed"
+	ErrMessageWriteHeaderBinaryError     = "write header binary error"
+	ErrMessageWriteMetadataError         = "write metadata error"
+	ErrMessageWriteCipherTextError       = "write cipher text error"
+	ErrMessageInitHeaderError            = "init header error"
+	ErrMessageReadBinaryError            = "read binary error"
+	ErrMessageReadMetadataError          = "read metadata error"
+	ErrMessageJSONUnmarshalMetadataError = "json unmarshal metadata error"
+	ErrMessageReadCipherTextError        = "read cipher text error"
+	ErrMessageOpenCipherTextError        = "open cipher text error"
+
+	ErrMessageTokenMarshalJSONError   = "failed to marshal token to JSON"
+	ErrMessageTokenUnmarshalJSONError = "failed to unmarshal token JSON"
+	ErrMessageTokenCreateCipherError  = "failed to create cipher"
+	ErrMessageTokenDecodeBase64Error  = "failed to decode Base64 token"
+
+	ErrMessageShamirInvalidThresholdOrShares = "invalid threshold or number of shares"
+	ErrMessageShamirIOReadFullError          = "io read full error"
+	ErrMessageShamirSignShareError           = "sign share error"
+	ErrMessageShamirVerifySignatureError     = "verify share signature error"
+	ErrMessageShamirVerifySignatureFailed    = "verify share signature failed"
+
+	ErrMessageUnsealOpenContainerError        = "open container error"
+	ErrMessageUnsealGetTokenStringError       = "get token string error"
+	ErrMessageUnsealParseTokensError          = "parse tokens error"
+	ErrMessageUnsealRestoreMasterKeyError     = "restore master key error"
+	ErrMessageUnsealContainerError            = "unseal container error"
+	ErrMessageUnsealUnpackContentError        = "unpack content error"
+	ErrMessageUnsealGetReaderError            = "get reader error"
+	ErrMessageUnsealReadAllError              = "read all error"
+	ErrMessageUnsealInvalidTokenFormatError   = "invalid token format"
+	ErrMessageUnsealUnmarshalTokenListError   = "unmarshal token list error"
+	ErrMessageUnsealParseTokenError           = "parse token error"
+	ErrMessageUnsealDecodeMasterKeyError      = "decode master key error"
+	ErrMessageUnsealDecodeShareValueError     = "decode share value error"
+	ErrMessageUnsealDecodeShareSignatureError = "decode share signature error"
+	ErrMessageUnsealCompressionUnpackError    = "compression unpack error"
+
+	ErrMessageSealCompressFolderError                    = "compress folder error"
+	ErrMessageSealCreateContainerError                   = "create container error"
+	ErrMessageSealCreateIntegrityProviderError           = "create integrity provider error"
+	ErrMessageSealDeriveIntegrityProviderPassphraseError = "derive integrity provider passphrase error"
+	ErrMessageSealGenerateAndSaveTokensError             = "generate and save tokens error"
+	ErrMessageSealCompressionPackError                   = "compression pack error"
+	ErrMessageSealCreateContainerHeaderError             = "create container header error"
+	ErrMessageSealEncryptContainerError                  = "encrypt container error"
+	ErrMessageSealWriteContainerError                    = "write container error"
+	ErrMessageSealShamirSplitError                       = "shamir split error"
+	ErrMessageSealWriteTokensShareError                  = "write tokens (share) error"
+	ErrMessageSealBuildShareTokenError                   = "build token (share) error"
+	ErrMessageSealWriteTokenMasterError                  = "write token (master) error"
+	ErrMessageSealBuildMasterTokenError                  = "build token (master) error"
+
+	ErrMessageResealOpenContainerError            = "open container error"
+	ErrMessageResealGetTokenStringError           = "get token string error"
+	ErrMessageResealParseTokensError              = "parse tokens error"
+	ErrMessageResealRestoreMasterKeyError         = "restore master key error"
+	ErrMessageResealCompressFolderError           = "compress folder error"
+	ErrMessageResealEncryptContainerError         = "encrypt container error"
+	ErrMessageResealWriteContainerError           = "write container error"
+	ErrMessageResealCreateIntegrityProviderError  = "create integrity provider error"
+	ErrMessageResealDeriveAdditionalPasswordError = "derive additional password error"
 )
 
 const (
@@ -226,6 +396,7 @@ type Error struct {
 	Category   ErrorCategory `json:"category"`
 	Details    string        `json:"details"`
 	Suggestion string        `json:"suggestion"`
+	Stacktrace []string      `json:"stacktrace"`
 	Wrapped    error         `json:"-"`
 }
 
@@ -265,6 +436,7 @@ func NewError(
 	code ErrorCode,
 	message, details, suggestion string,
 	wrapped error,
+	stacktrace []string,
 ) *Error {
 	return &Error{
 		Type:       errorType,
@@ -274,33 +446,67 @@ func NewError(
 		Details:    details,
 		Suggestion: suggestion,
 		Wrapped:    wrapped,
+		Stacktrace: stacktrace,
 	}
 }
 
 func ValidationErr(category ErrorCategory, err error) *Error {
 	return NewError(
-		ErrorTypeValidation, category, errorToCode[err], err.Error(), "", errorToSuggestion[err], err,
+		ErrorTypeValidation,
+		category,
+		errorToCode[err],
+		err.Error(),
+		"",
+		errorToSuggestion[err],
+		err,
+		unwrapErrorToStacktrace(err),
 	)
 }
 
 func InternalErr(category ErrorCategory, code ErrorCode, message string, details string, err error) *Error {
-	return NewError(ErrorTypeInternal, category, code, message, details, "", err)
-}
-
-func AuthErr(category ErrorCategory, code ErrorCode, message string, suggestion string, err error) *Error {
-	return NewError(ErrorTypeAuth, category, code, message, "", suggestion, err)
+	return NewError(
+		ErrorTypeInternal,
+		category,
+		code,
+		message,
+		details,
+		"",
+		err,
+		unwrapErrorToStacktrace(err),
+	)
 }
 
 func IOErr(category ErrorCategory, code ErrorCode, message string, suggestion string, err error) *Error {
-	return NewError(ErrorTypeIO, category, code, message, "", suggestion, err)
+	return NewError(ErrorTypeIO, category, code, message, "", suggestion, err, unwrapErrorToStacktrace(err))
 }
 
 func CryptoErr(category ErrorCategory, code ErrorCode, message string, details string, err error) *Error {
-	return NewError(ErrorTypeCrypto, category, code, message, details, "", err)
+	return NewError(ErrorTypeCrypto, category, code, message, details, "", err, unwrapErrorToStacktrace(err))
 }
 
 func FormatErr(category ErrorCategory, code ErrorCode, message string, suggestion string, err error) *Error {
-	return NewError(ErrorTypeFormat, category, code, message, "", suggestion, err)
+	return NewError(ErrorTypeFormat, category, code, message, "", suggestion, err, unwrapErrorToStacktrace(err))
+}
+
+func unwrapErrorToStacktrace(err error) []string {
+	if err == nil {
+		return nil
+	}
+
+	if err.Error() == "" {
+		return []string{}
+	}
+
+	var stacktrace = strings.Split(err.Error(), ":")
+	for i, s := range stacktrace {
+		if s == "" {
+			continue
+		}
+
+		stacktrace[i] = strings.TrimSpace(s)
+	}
+
+	return stacktrace
 }
 
 func AsError(err error) (*Error, bool) {
@@ -320,11 +526,6 @@ func IsValidationError(err error) bool {
 func IsInternalError(err error) bool {
 	e, ok := AsError(err)
 	return ok && e.IsType(ErrorTypeInternal)
-}
-
-func IsAuthError(err error) bool {
-	e, ok := AsError(err)
-	return ok && e.IsType(ErrorTypeAuth)
 }
 
 func IsIOError(err error) bool {

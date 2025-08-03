@@ -2,7 +2,6 @@ package container
 
 import (
 	"crypto/rand"
-	"fmt"
 
 	"github.com/namelesscorp/tvault-core/lib"
 )
@@ -38,11 +37,23 @@ func NewHeader(compressionType byte, shares, threshold uint8) (Header, error) {
 	}
 
 	if _, err := rand.Read(h.Salt[:]); err != nil {
-		return h, fmt.Errorf("rand read salt error; %w", err)
+		return h, lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeRandReadSaltError,
+			lib.ErrMessageRandReadSaltError,
+			"",
+			err,
+		)
 	}
 
 	if _, err := rand.Read(h.Nonce[:]); err != nil {
-		return h, fmt.Errorf("rand read nonce error; %w", err)
+		return h, lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeRandReadNonceError,
+			lib.ErrMessageRandReadNonceError,
+			"",
+			err,
+		)
 	}
 
 	copy(h.Signature[:], signature)

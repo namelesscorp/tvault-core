@@ -3,7 +3,6 @@ package unseal
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 
@@ -21,34 +20,70 @@ import (
 func Unseal(opts Options) error {
 	cont, err := OpenContainer(*opts.Container.CurrentPath)
 	if err != nil {
-		return lib.InternalErr(0x011, fmt.Errorf("open container error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealOpenContainerError,
+			lib.ErrMessageUnsealOpenContainerError,
+			"",
+			err,
+		)
 	}
 
 	derivedPassphrase := DeriveIntegrityProviderPassphrase(*opts.IntegrityProvider.CurrentPassphrase, cont.GetHeader().Salt)
 
 	tokenString, err := GetTokenString(opts.TokenReader)
 	if err != nil {
-		return lib.InternalErr(0x012, fmt.Errorf("get token string error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealGetTokenStringError,
+			lib.ErrMessageUnsealGetTokenStringError,
+			"",
+			err,
+		)
 	}
 
 	masterKey, shares, err := ParseTokens(tokenString, *opts.TokenReader.Format, derivedPassphrase)
 	if err != nil {
-		return lib.InternalErr(0x013, fmt.Errorf("parse tokens error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealParseTokensError,
+			lib.ErrMessageUnsealParseTokensError,
+			"",
+			err,
+		)
 	}
 
 	if len(masterKey) == 0 {
 		masterKey, err = RestoreMasterKey(shares, derivedPassphrase)
 		if err != nil {
-			return lib.InternalErr(0x014, fmt.Errorf("restore master key error; %w", err))
+			return lib.InternalErr(
+				lib.CategoryUnseal,
+				lib.ErrCodeUnsealRestoreMasterKeyError,
+				lib.ErrMessageUnsealRestoreMasterKeyError,
+				"",
+				err,
+			)
 		}
 	}
 
 	if err = cont.Decrypt(masterKey); err != nil {
-		return lib.InternalErr(0x015, fmt.Errorf("unseal container error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealContainerError,
+			lib.ErrMessageUnsealContainerError,
+			"",
+			err,
+		)
 	}
 
 	if err = unpackContent(cont.GetData(), *opts.Container.FolderPath, cont.GetHeader().CompressionType); err != nil {
-		return lib.InternalErr(0x016, fmt.Errorf("unpack content error; %w", err))
+		return lib.InternalErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealUnpackContentError,
+			lib.ErrMessageUnsealUnpackContentError,
+			"",
+			err,
+		)
 	}
 
 	return nil
@@ -57,7 +92,13 @@ func Unseal(opts Options) error {
 func OpenContainer(containerPath string) (container.Container, error) {
 	cont := container.NewContainer(containerPath, nil, container.Metadata{}, container.Header{})
 	if err := cont.Read(); err != nil {
-		return nil, fmt.Errorf("open container error; %w", err)
+		return nil, lib.IOErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealOpenContainerError,
+			lib.ErrMessageUnsealOpenContainerError,
+			"",
+			err,
+		)
 	}
 
 	return cont, nil
@@ -74,7 +115,13 @@ func DeriveIntegrityProviderPassphrase(passphrase string, salt [16]byte) []byte 
 func GetTokenString(tokenReader *lib.Reader) (string, error) {
 	reader, closer, err := lib.NewReader(tokenReader)
 	if err != nil {
-		return "", fmt.Errorf("get reader error; %w", err)
+		return "", lib.IOErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealGetReaderError,
+			lib.ErrMessageUnsealGetReaderError,
+			"",
+			err,
+		)
 	}
 
 	if closer != nil {
@@ -85,7 +132,13 @@ func GetTokenString(tokenReader *lib.Reader) (string, error) {
 
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return "", fmt.Errorf("read all error; %w", err)
+		return "", lib.IOErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealReadAllError,
+			lib.ErrMessageUnsealReadAllError,
+			"",
+			err,
+		)
 	}
 
 	return string(content), nil
@@ -96,14 +149,26 @@ func ParseTokens(tokenString, tokenFormat string, addPwd []byte) (masterKey []by
 	case lib.ReaderFormatPlaintext:
 		tokenList := strings.Split(tokenString, "|")
 		if len(tokenList) == 0 {
-			return nil, nil, fmt.Errorf("invalid token format")
+			return nil, nil, lib.FormatErr(
+				lib.CategoryUnseal,
+				lib.ErrCodeUnsealInvalidTokenFormatError,
+				lib.ErrMessageUnsealInvalidTokenFormatError,
+				"",
+				nil,
+			)
 		}
 
 		return parseTokenList(tokenList, addPwd)
 	case lib.ReaderFormatJSON:
 		var list token.List
 		if err = json.Unmarshal([]byte(tokenString), &list); err != nil {
-			return nil, nil, fmt.Errorf("unmarshal token list error; %w", err)
+			return nil, nil, lib.FormatErr(
+				lib.CategoryUnseal,
+				lib.ErrCodeUnsealUnmarshalTokenListError,
+				lib.ErrMessageUnsealUnmarshalTokenListError,
+				"",
+				err,
+			)
 		}
 
 		return parseTokenList(list.TokenList, addPwd)
@@ -116,13 +181,25 @@ func parseTokenList(tokenList []string, addPwd []byte) (masterKey []byte, shares
 	for _, raw := range tokenList {
 		var tok token.Token
 		if tok, err = token.Parse([]byte(raw), addPwd); err != nil {
-			return nil, nil, fmt.Errorf("parse token error; %w", err)
+			return nil, nil, lib.FormatErr(
+				lib.CategoryUnseal,
+				lib.ErrCodeUnsealParseTokenError,
+				lib.ErrMessageUnsealParseTokenError,
+				"",
+				err,
+			)
 		}
 
 		switch byte(tok.Type) {
 		case token.TypeMaster:
 			if masterKey, err = hex.DecodeString(tok.Value); err != nil {
-				return nil, nil, fmt.Errorf("decode master key error; %w", err)
+				return nil, nil, lib.FormatErr(
+					lib.CategoryUnseal,
+					lib.ErrCodeUnsealDecodeMasterKeyError,
+					lib.ErrMessageUnsealDecodeMasterKeyError,
+					"",
+					err,
+				)
 			}
 
 			shares = append(shares, shamir.Share{
@@ -149,12 +226,24 @@ func parseTokenList(tokenList []string, addPwd []byte) (masterKey []byte, shares
 func createShareFromToken(item token.Token) (shamir.Share, error) {
 	val, err := hex.DecodeString(item.Value)
 	if err != nil {
-		return shamir.Share{}, fmt.Errorf("decode share value error; %w", err)
+		return shamir.Share{}, lib.FormatErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealDecodeShareValueError,
+			lib.ErrMessageUnsealDecodeShareValueError,
+			"",
+			err,
+		)
 	}
 
 	sig, err := hex.DecodeString(item.Signature)
 	if err != nil {
-		return shamir.Share{}, fmt.Errorf("decode share signature error; %w", err)
+		return shamir.Share{}, lib.FormatErr(
+			lib.CategoryUnseal,
+			lib.ErrCodeUnsealDecodeShareSignatureError,
+			lib.ErrMessageUnsealDecodeShareSignatureError,
+			"",
+			err,
+		)
 	}
 
 	return shamir.Share{
@@ -195,7 +284,13 @@ func unpackContent(content []byte, folderPath string, compressionType byte) erro
 	switch compressionType {
 	case compression.TypeZip:
 		if err := zip.New().Unpack(content, folderPath); err != nil {
-			return fmt.Errorf("compression unpack error; %w", err)
+			return lib.IOErr(
+				lib.CategoryUnseal,
+				lib.ErrCodeUnsealCompressionUnpackError,
+				lib.ErrMessageUnsealCompressionUnpackError,
+				"",
+				err,
+			)
 		}
 
 		return nil

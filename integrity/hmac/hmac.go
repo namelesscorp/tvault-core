@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 
 	"github.com/namelesscorp/tvault-core/integrity"
+	"github.com/namelesscorp/tvault-core/lib"
 )
 
 type (
@@ -22,8 +23,26 @@ func New(key []byte) integrity.Provider {
 // Sign - generates an HMAC signature for the given id and data using the hmac's secret key.
 func (h *hmac) Sign(id byte, data []byte) ([]byte, error) {
 	newHmac := cryptoHMAC.New(sha256.New, h.key)
-	newHmac.Write([]byte{id})
-	newHmac.Write(data)
+
+	if _, err := newHmac.Write([]byte{id}); err != nil {
+		return nil, lib.CryptoErr(
+			lib.CategoryIntegrity,
+			lib.ErrCodeHMACWriteIDError,
+			lib.ErrMessageHMACWriteIDError,
+			"",
+			err,
+		)
+	}
+
+	if _, err := newHmac.Write(data); err != nil {
+		return nil, lib.CryptoErr(
+			lib.CategoryIntegrity,
+			lib.ErrCodeHMACWriteDataError,
+			lib.ErrMessageHMACWriteDataError,
+			"",
+			err,
+		)
+	}
 
 	var mac [32]byte
 	copy(mac[:], newHmac.Sum(nil))
@@ -35,7 +54,13 @@ func (h *hmac) Sign(id byte, data []byte) ([]byte, error) {
 func (h *hmac) IsVerify(id byte, data, signature []byte) (bool, error) {
 	expectedMac, err := h.Sign(id, data)
 	if err != nil {
-		return false, err
+		return false, lib.CryptoErr(
+			lib.CategoryIntegrity,
+			lib.ErrCodeHMACSignError,
+			lib.ErrMessageHMACSignError,
+			"",
+			err,
+		)
 	}
 
 	return cryptoHMAC.Equal(expectedMac, signature), nil

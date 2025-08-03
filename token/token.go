@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 
 	"github.com/namelesscorp/tvault-core/lib"
 )
@@ -40,7 +39,13 @@ type (
 func Build(token Token, key []byte) ([]byte, error) {
 	tokenBytes, err := json.Marshal(&token)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal token to JSON; %w", err)
+		return nil, lib.FormatErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenMarshalJSONError,
+			lib.ErrMessageTokenMarshalJSONError,
+			"",
+			err,
+		)
 	}
 
 	if key == nil {
@@ -76,7 +81,13 @@ func Parse(tokenBytes, key []byte) (Token, error) {
 
 	var result Token
 	if err = json.Unmarshal(decrypted, &result); err != nil {
-		return Token{}, fmt.Errorf("failed to unmarshal token JSON; %w", err)
+		return Token{}, lib.FormatErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenUnmarshalJSONError,
+			lib.ErrMessageTokenUnmarshalJSONError,
+			"",
+			err,
+		)
 	}
 
 	if result.Version != Version {
@@ -90,7 +101,13 @@ func Parse(tokenBytes, key []byte) (Token, error) {
 func encrypt(data, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher; %w", err)
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenCreateCipherError,
+			lib.ErrMessageTokenCreateCipherError,
+			"",
+			err,
+		)
 	}
 
 	encrypted := make([]byte, len(data))
@@ -104,7 +121,13 @@ func encrypt(data, key []byte) ([]byte, error) {
 func decrypt(data, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher; %w", err)
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenCreateCipherError,
+			lib.ErrMessageTokenCreateCipherError,
+			"",
+			err,
+		)
 	}
 
 	decrypted := make([]byte, len(data))
@@ -118,7 +141,13 @@ func decrypt(data, key []byte) ([]byte, error) {
 func decodeBase64(data []byte) ([]byte, error) {
 	decoded, err := base64.StdEncoding.DecodeString(string(data))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode Base64 token; %w", err)
+		return nil, lib.FormatErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenDecodeBase64Error,
+			lib.ErrMessageTokenDecodeBase64Error,
+			"",
+			err,
+		)
 	}
 
 	return decoded, nil

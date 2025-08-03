@@ -1,13 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/container"
-	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/token"
 )
 
@@ -101,40 +98,4 @@ func findNextSubcommand(args []string, startIdx int) int {
 	}
 
 	return len(args)
-}
-
-func handleError(logWriter *lib.Writer, operation string, err error) {
-	writer, closer, _ := lib.NewWriter(logWriter)
-	if closer != nil {
-		defer func(closer io.Closer) {
-			_ = closer.Close()
-		}(closer)
-	}
-
-	var errLib *lib.Error
-	if ok := errors.As(err, &errLib); !ok {
-		fmt.Printf("operation: %s; error: %v", operation, err)
-		os.Exit(1)
-		return
-	}
-
-	var message any
-	switch *logWriter.Format {
-	case lib.WriterFormatPlaintext:
-		message = fmt.Sprintf(
-			"operation: %s; code: %d; type: %b; message: %s",
-			operation,
-			errLib.Code,
-			errLib.Type,
-			errLib.Message,
-		)
-	case lib.WriterFormatJSON:
-		message = errLib
-	}
-
-	if _, err = lib.WriteFormatted(writer, *logWriter.Format, message); err != nil {
-		fmt.Printf("failed to write error message; %v", err)
-	}
-
-	os.Exit(1)
 }

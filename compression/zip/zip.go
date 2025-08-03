@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/namelesscorp/tvault-core/compression"
+	"github.com/namelesscorp/tvault-core/lib"
 )
 
 type zip struct{}
@@ -34,14 +35,26 @@ func (z *zip) Pack(folder string) ([]byte, error) {
 
 		relPath, err := filepath.Rel(folder, path)
 		if err != nil {
-			return fmt.Errorf("get relative path error; %w", err)
+			return lib.InternalErr(
+				lib.CategoryCompression,
+				lib.ErrCodeGetFilePathRelative,
+				lib.ErrMessageGetFilePathRelative,
+				"",
+				err,
+			)
 		}
 
 		cleanPath := filepath.Clean(path)
 
 		f, err := os.Open(cleanPath)
 		if err != nil {
-			return fmt.Errorf("open file error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeOpenFileError,
+				lib.ErrMessageOpenFileError,
+				"",
+				err,
+			)
 		}
 		defer func(f *os.File) {
 			if errClose := f.Close(); err != nil {
@@ -51,20 +64,44 @@ func (z *zip) Pack(folder string) ([]byte, error) {
 
 		w, err := zw.Create(relPath)
 		if err != nil {
-			return fmt.Errorf("create zip error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeCreateZipError,
+				lib.ErrMessageCreateZipError,
+				"",
+				err,
+			)
 		}
 
 		if _, err = io.Copy(w, f); err != nil {
-			return fmt.Errorf("io copy error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeIOCopyError,
+				lib.ErrMessageIOCopyError,
+				"",
+				err,
+			)
 		}
 
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("walk dir error; %w", err)
+		return nil, lib.IOErr(
+			lib.CategoryCompression,
+			lib.ErrCodeWalkDirError,
+			lib.ErrMessageWalkDirError,
+			"",
+			err,
+		)
 	}
 
 	if err := zw.Close(); err != nil {
-		return nil, fmt.Errorf("close zip error; %w", err)
+		return nil, lib.IOErr(
+			lib.CategoryCompression,
+			lib.ErrCodeCloseZipError,
+			lib.ErrMessageCloseZipError,
+			"",
+			err,
+		)
 	}
 
 	return buf.Bytes(), nil
@@ -74,51 +111,105 @@ func (z *zip) Pack(folder string) ([]byte, error) {
 func (z *zip) Unpack(data []byte, targetDir string) error {
 	r, err := archiveZip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return fmt.Errorf("create new zip reader error; %w", err)
+		return lib.IOErr(
+			lib.CategoryCompression,
+			lib.ErrCodeCreateZipReaderError,
+			lib.ErrMessageCreateZipReaderError,
+			"",
+			err,
+		)
 	}
 
 	for _, f := range r.File {
 		path := filepath.Join(targetDir, f.Name) // #nosec G305
 		if f.FileInfo().IsDir() {
 			if err = os.MkdirAll(path, 0750); err != nil {
-				return fmt.Errorf("create directory error; %w", err)
+				return lib.IOErr(
+					lib.CategoryCompression,
+					lib.ErrCodeCreateDirectoryError,
+					lib.ErrMessageCreateDirectoryError,
+					"",
+					err,
+				)
 			}
 
 			continue
 		}
 
 		if err = os.MkdirAll(filepath.Dir(path), 0750); err != nil {
-			return fmt.Errorf("create directory error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeCreateDirectoryError,
+				lib.ErrMessageCreateDirectoryError,
+				"",
+				err,
+			)
 		}
 
 		cleanPath := filepath.Clean(path)
 
 		var out *os.File
 		if out, err = os.OpenFile(cleanPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode()); err != nil {
-			return fmt.Errorf("os open file error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeOSOpenFileError,
+				lib.ErrMessageOSOpenFileError,
+				"",
+				err,
+			)
 		}
 
 		var rc io.ReadCloser
 		if rc, err = f.Open(); err != nil {
 			if errClose := out.Close(); errClose != nil {
-				return fmt.Errorf("close file error; %w", errClose)
+				return lib.IOErr(
+					lib.CategoryCompression,
+					lib.ErrCodeCloseFileError,
+					lib.ErrMessageCloseFileError,
+					"",
+					errClose,
+				)
 			}
 
-			return fmt.Errorf("open file error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeOpenFileError,
+				lib.ErrMessageOpenFileError,
+				"",
+				err,
+			)
 		}
 
 		_, err = io.Copy(out, rc) // #nosec G110
 
 		if errClose := out.Close(); errClose != nil {
-			return fmt.Errorf("close file error; %w", errClose)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeCloseFileError,
+				lib.ErrMessageCloseFileError,
+				"",
+				errClose,
+			)
 		}
 
 		if errClose := rc.Close(); errClose != nil {
-			return fmt.Errorf("reader closer error; %w", errClose)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeReaderCloserError,
+				lib.ErrMessageReaderCloserError,
+				"",
+				errClose,
+			)
 		}
 
 		if err != nil {
-			return fmt.Errorf("io copy error; %w", err)
+			return lib.IOErr(
+				lib.CategoryCompression,
+				lib.ErrCodeIOCopyError,
+				lib.ErrMessageIOCopyError,
+				"",
+				err,
+			)
 		}
 	}
 

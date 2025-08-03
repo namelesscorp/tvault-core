@@ -30,12 +30,12 @@ func handleReseal(args []string) {
 	}
 
 	if err := options.Validate(); err != nil {
-		handleError(options.LogWriter, commandReseal, err)
+		lib.ErrorFormatted(options.LogWriter, commandReseal, err)
 		return
 	}
 
 	if err := reseal.Reseal(options); err != nil {
-		handleError(options.LogWriter, commandReseal, err)
+		lib.ErrorFormatted(options.LogWriter, commandReseal, err)
 		return
 	}
 }

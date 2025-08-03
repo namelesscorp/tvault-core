@@ -3,10 +3,10 @@ package shamir
 import (
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/namelesscorp/tvault-core/integrity"
+	"github.com/namelesscorp/tvault-core/lib"
 )
 
 type Share struct {
@@ -20,7 +20,13 @@ type Share struct {
 // It signs each share with the provided integrity provider for authenticity and returns the shares.
 func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error) {
 	if t < 2 || t > 255 || n < t || n > 255 {
-		return nil, errors.New("invalid threshold or number of shares")
+		return nil, lib.InternalErr(
+			lib.CategoryShamir,
+			lib.ErrCodeShamirInvalidThresholdOrShares,
+			lib.ErrMessageShamirInvalidThresholdOrShares,
+			"",
+			errors.New(lib.ErrMessageShamirInvalidThresholdOrShares),
+		)
 	}
 
 	shareData := make([][]byte, n)
@@ -33,7 +39,13 @@ func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error)
 		cfs[0] = b
 
 		if _, err := io.ReadFull(rand.Reader, cfs[1:]); err != nil {
-			return nil, fmt.Errorf("io read full error; %w", err)
+			return nil, lib.IOErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirIOReadFullError,
+				lib.ErrMessageShamirIOReadFullError,
+				"",
+				err,
+			)
 		}
 
 		for j := 1; j <= n; j++ {
@@ -51,7 +63,13 @@ func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error)
 
 		signature, err := provider.Sign(id, val)
 		if err != nil {
-			return nil, fmt.Errorf("sign share error; %w", err)
+			return nil, lib.CryptoErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirSignShareError,
+				lib.ErrMessageShamirSignShareError,
+				"",
+				err,
+			)
 		}
 
 		shares[i] = Share{
@@ -69,7 +87,10 @@ func Split(input []byte, n, t int, provider integrity.Provider) ([]Share, error)
 // Requires at least two valid shares and a provider for signature verification to successfully execute.
 func Combine(shares []Share, provider integrity.Provider) ([]byte, error) {
 	if len(shares) < 2 {
-		return nil, errors.New("need at least 2 shares")
+		return nil, lib.ValidationErr(
+			lib.CategoryShamir,
+			lib.ErrShamirSharesLessThan2,
+		)
 	}
 
 	var (
@@ -79,11 +100,23 @@ func Combine(shares []Share, provider integrity.Provider) ([]byte, error) {
 	for _, sh := range shares {
 		isVerify, err := provider.IsVerify(sh.ID, sh.Value, sh.Signature)
 		if err != nil {
-			return nil, fmt.Errorf("verify share signature error; %w", err)
+			return nil, lib.CryptoErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirVerifySignatureError,
+				lib.ErrMessageShamirVerifySignatureError,
+				"",
+				err,
+			)
 		}
 
 		if !isVerify {
-			return nil, errors.New("verify share signature failed")
+			return nil, lib.CryptoErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirVerifySignatureFailed,
+				lib.ErrMessageShamirVerifySignatureFailed,
+				"",
+				nil,
+			)
 		}
 	}
 

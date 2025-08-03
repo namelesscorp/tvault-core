@@ -90,16 +90,34 @@ func (c *container) Encrypt(data, key []byte) error {
 	// seal plaintext
 	block, err := aes.NewCipher(c.masterKey)
 	if err != nil {
-		return fmt.Errorf("create new cipher error; %w", err)
+		return lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeCreateNewCipherError,
+			lib.ErrMessageCreateNewCipherError,
+			"",
+			err,
+		)
 	}
 
 	aesGcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return fmt.Errorf("create new gcm error; %w", err)
+		return lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeCreateNewGCMError,
+			lib.ErrMessageCreateNewGCMError,
+			"",
+			err,
+		)
 	}
 
 	if _, err = io.ReadFull(rand.Reader, c.header.Nonce[:]); err != nil {
-		return fmt.Errorf("failed to generate noncel; %w", err)
+		return lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeGenerateNonceError,
+			lib.ErrMessageGenerateNonceError,
+			"",
+			err,
+		)
 	}
 
 	c.cipherData = aesGcm.Seal(nil, c.header.Nonce[:], data, nil) // #nosec G407
@@ -114,7 +132,13 @@ func (c *container) Write() error {
 		err error
 	)
 	if f, err = os.OpenFile(c.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err != nil {
-		return fmt.Errorf("open file error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeContainerOpenFileError,
+			lib.ErrMessageContainerOpenFileError,
+			"",
+			err,
+		)
 	}
 	defer func(f *os.File) {
 		if err = f.Close(); err != nil {
@@ -124,25 +148,55 @@ func (c *container) Write() error {
 
 	var metaBytes []byte
 	if metaBytes, err = json.Marshal(c.metadata); err != nil {
-		return fmt.Errorf("json marshal metadata error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeJSONMarshalMetadataError,
+			lib.ErrMessageJSONMarshalMetadataError,
+			"",
+			err,
+		)
 	}
 
 	if len(metaBytes) > math.MaxUint32 {
-		return fmt.Errorf("metadata size exceeds maximum allowed")
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeMetadataSizeExceedsError,
+			lib.ErrMessageMetadataSizeExceedsError,
+			"",
+			nil,
+		)
 	}
 
 	c.header.MetadataSize = uint32(len(metaBytes)) // #nosec G115
 
 	if err = binary.Write(f, binary.LittleEndian, &c.header); err != nil {
-		return fmt.Errorf("write header binary error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeWriteHeaderBinaryError,
+			lib.ErrMessageWriteHeaderBinaryError,
+			"",
+			err,
+		)
 	}
 
 	if _, err = f.Write(metaBytes); err != nil {
-		return fmt.Errorf("write metadata error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeWriteMetadataError,
+			lib.ErrMessageWriteMetadataError,
+			"",
+			err,
+		)
 	}
 
 	if _, err = f.Write(c.cipherData); err != nil {
-		return fmt.Errorf("write cipher text error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeWriteCipherTextError,
+			lib.ErrMessageWriteCipherTextError,
+			"",
+			err,
+		)
 	}
 
 	return nil
@@ -152,7 +206,13 @@ func (c *container) Write() error {
 func (c *container) Read() error {
 	f, err := os.Open(c.path)
 	if err != nil {
-		return err
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeContainerOpenFileError,
+			lib.ErrMessageContainerOpenFileError,
+			"",
+			err,
+		)
 	}
 	defer func(f *os.File) {
 		if err = f.Close(); err != nil {
@@ -161,11 +221,23 @@ func (c *container) Read() error {
 	}(f)
 
 	if c.header, err = NewHeader(0, 0, 0); err != nil {
-		return fmt.Errorf("init header error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeInitHeaderError,
+			lib.ErrMessageInitHeaderError,
+			"",
+			err,
+		)
 	}
 
 	if err = binary.Read(f, binary.LittleEndian, &c.header); err != nil {
-		return fmt.Errorf("read binary error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeReadBinaryError,
+			lib.ErrMessageReadBinaryError,
+			"",
+			err,
+		)
 	}
 
 	if string(c.header.Signature[:]) != signature {
@@ -178,16 +250,34 @@ func (c *container) Read() error {
 
 	metaBytes := make([]byte, c.header.MetadataSize)
 	if _, err = io.ReadFull(f, metaBytes); err != nil {
-		return fmt.Errorf("read metadata error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeReadMetadataError,
+			lib.ErrMessageReadMetadataError,
+			"",
+			err,
+		)
 	}
 
 	if err = json.Unmarshal(metaBytes, &c.metadata); err != nil {
-		return fmt.Errorf("json unmarshal metadata; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeJSONUnmarshalMetadataError,
+			lib.ErrMessageJSONUnmarshalMetadataError,
+			"",
+			err,
+		)
 	}
 
 	var ciphertext []byte
 	if ciphertext, err = io.ReadAll(f); err != nil {
-		return fmt.Errorf("read cipher text error; %w", err)
+		return lib.IOErr(
+			lib.CategoryContainer,
+			lib.ErrCodeReadCipherTextError,
+			lib.ErrMessageReadCipherTextError,
+			"",
+			err,
+		)
 	}
 
 	c.cipherData = ciphertext
@@ -204,16 +294,34 @@ func (c *container) Decrypt(masterKey []byte) error {
 	// unseal
 	block, err := aes.NewCipher(c.masterKey)
 	if err != nil {
-		return fmt.Errorf("create new cipher error; %w", err)
+		return lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeCreateNewCipherError,
+			lib.ErrMessageCreateNewCipherError,
+			"",
+			err,
+		)
 	}
 
 	aesGcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return fmt.Errorf("create new gcm error; %w", err)
+		return lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeCreateNewGCMError,
+			lib.ErrMessageCreateNewGCMError,
+			"",
+			err,
+		)
 	}
 
 	if c.data, err = aesGcm.Open(nil, c.header.Nonce[:], c.cipherData, nil); err != nil {
-		return fmt.Errorf("open cipher text error; %w", err)
+		return lib.CryptoErr(
+			lib.CategoryContainer,
+			lib.ErrCodeOpenCipherTextError,
+			lib.ErrMessageOpenCipherTextError,
+			"",
+			err,
+		)
 	}
 
 	return nil

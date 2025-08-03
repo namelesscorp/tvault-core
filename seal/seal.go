@@ -23,7 +23,13 @@ func Seal(options Options) error {
 	// compressing folder and getting data, compression
 	data, compID, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
 	if err != nil {
-		return lib.InternalErr(0x111, fmt.Errorf("compress folder error; %w", err))
+		return lib.InternalErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealCompressFolderError,
+			lib.ErrMessageSealCompressFolderError,
+			"",
+			err,
+		)
 	}
 
 	// create container and get master key and container salt
@@ -35,21 +41,45 @@ func Seal(options Options) error {
 		options.Shamir,
 	)
 	if err != nil {
-		return lib.InternalErr(0x112, fmt.Errorf("create container error; %w", err))
+		return lib.InternalErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealCreateContainerError,
+			lib.ErrMessageSealCreateContainerError,
+			"",
+			err,
+		)
 	}
 
 	integrityProvider, err := CreateIntegrityProviderWithNewPassphrase(options.IntegrityProvider)
 	if err != nil {
-		return lib.InternalErr(0x113, fmt.Errorf("create integrity provider error; %w", err))
+		return lib.InternalErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealCreateIntegrityProviderError,
+			lib.ErrMessageSealCreateIntegrityProviderError,
+			"",
+			err,
+		)
 	}
 
 	integrityProviderPassphrase, err := DeriveIntegrityProviderNewPassphrase(options.IntegrityProvider, containerSalt)
 	if err != nil {
-		return lib.InternalErr(0x114, fmt.Errorf("derive integrity provider passhrase error; %w", err))
+		return lib.InternalErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealDeriveIntegrityProviderPassphraseError,
+			lib.ErrMessageSealDeriveIntegrityProviderPassphraseError,
+			"",
+			err,
+		)
 	}
 
 	if err = GenerateAndSaveTokens(options, integrityProviderPassphrase, masterKey, integrityProvider); err != nil {
-		return lib.InternalErr(0x115, fmt.Errorf("generate and save tokens error; %w", err))
+		return lib.InternalErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealGenerateAndSaveTokensError,
+			lib.ErrMessageSealGenerateAndSaveTokensError,
+			"",
+			err,
+		)
 	}
 
 	return nil
@@ -61,7 +91,13 @@ func CompressFolder(compressionType, folderPath string) ([]byte, byte, error) {
 		var comp = zip.New()
 		data, err := comp.Pack(folderPath)
 		if err != nil {
-			return nil, 0, fmt.Errorf("compression pack error; %w", err)
+			return nil, 0, lib.IOErr(
+				lib.CategorySeal,
+				lib.ErrCodeSealCompressionPackError,
+				lib.ErrMessageSealCompressionPackError,
+				"",
+				err,
+			)
 		}
 
 		return data, comp.ID(), nil
@@ -80,7 +116,13 @@ func CreateContainer(
 ) ([]byte, []byte, error) {
 	header, err := container.NewHeader(compressionID, uint8(*shamir.Shares), uint8(*shamir.Threshold))
 	if err != nil {
-		return nil, nil, fmt.Errorf("create container header error; %w", err)
+		return nil, nil, lib.CryptoErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealCreateContainerHeaderError,
+			lib.ErrMessageSealCreateContainerHeaderError,
+			"",
+			err,
+		)
 	}
 
 	cont := container.NewContainer(
@@ -95,11 +137,23 @@ func CreateContainer(
 	)
 
 	if err = cont.Encrypt(data, passphrase); err != nil {
-		return nil, nil, fmt.Errorf("create container error; %w", err)
+		return nil, nil, lib.CryptoErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealEncryptContainerError,
+			lib.ErrMessageSealEncryptContainerError,
+			"",
+			err,
+		)
 	}
 
 	if err = cont.Write(); err != nil {
-		return nil, nil, fmt.Errorf("write container error; %w", err)
+		return nil, nil, lib.IOErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealWriteContainerError,
+			lib.ErrMessageSealWriteContainerError,
+			"",
+			err,
+		)
 	}
 
 	var containerHeaderSalt = cont.GetHeader().Salt
@@ -184,7 +238,13 @@ func SaveShareTokens(
 		integrityProvider,
 	)
 	if err != nil {
-		return fmt.Errorf("shamir split error; %w", err)
+		return lib.CryptoErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealShamirSplitError,
+			lib.ErrMessageSealShamirSplitError,
+			"",
+			err,
+		)
 	}
 
 	switch tokenWriterFormat {
@@ -203,7 +263,13 @@ func SaveShareTokens(
 		}
 
 		if _, err = lib.WriteFormatted(writer, tokenWriterFormat, b.String()); err != nil {
-			return fmt.Errorf("failed to write tokens (share); %w", err)
+			return lib.IOErr(
+				lib.CategorySeal,
+				lib.ErrCodeSealWriteTokensShareError,
+				lib.ErrMessageSealWriteTokensShareError,
+				"",
+				err,
+			)
 		}
 	case lib.WriterFormatJSON:
 		list := token.List{TokenList: make([]string, 0, len(shares))}
@@ -217,7 +283,13 @@ func SaveShareTokens(
 		}
 
 		if _, err = lib.WriteFormatted(writer, tokenWriterFormat, list); err != nil {
-			return fmt.Errorf("failed to write tokens (share); %w", err)
+			return lib.IOErr(
+				lib.CategorySeal,
+				lib.ErrCodeSealWriteTokensShareError,
+				lib.ErrMessageSealWriteTokensShareError,
+				"",
+				err,
+			)
 		}
 	default:
 		return lib.ErrUnknownWriterType
@@ -239,7 +311,13 @@ func buildShareToken(share *shamir.Share, additionalPassword []byte) ([]byte, er
 		additionalPassword,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("build token (share) error; %w", err)
+		return nil, lib.CryptoErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealBuildShareTokenError,
+			lib.ErrMessageSealBuildShareTokenError,
+			"",
+			err,
+		)
 	}
 
 	return shareToken, nil
@@ -267,7 +345,13 @@ func SaveMasterToken(
 	}
 
 	if _, err = lib.WriteFormatted(w, writerFormat, msg); err != nil {
-		return fmt.Errorf("failed to write token (master); %w", err)
+		return lib.IOErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealWriteTokenMasterError,
+			lib.ErrMessageSealWriteTokenMasterError,
+			"",
+			err,
+		)
 	}
 
 	return nil
@@ -284,7 +368,13 @@ func buildMasterToken(pwd, masterKey []byte, integrityProviderID byte) (string, 
 		pwd,
 	)
 	if err != nil {
-		return "", fmt.Errorf("build token (master) error; %w", err)
+		return "", lib.CryptoErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealBuildMasterTokenError,
+			lib.ErrMessageSealBuildMasterTokenError,
+			"",
+			err,
+		)
 	}
 
 	return base64.StdEncoding.EncodeToString(raw), nil
