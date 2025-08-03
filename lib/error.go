@@ -61,6 +61,12 @@ const (
 	ErrCodeResealLogWriterFormatInvalid       = 0x2012
 )
 
+const (
+	ErrSubcommandRequired = "'%s' subcommand is required for %s"
+	ErrFailedParseFlags   = "failed to parse '%s' flags; %v"
+	ErrUnknownSubcommand  = "unknown subcommand for reseal: '%s'"
+)
+
 // Validation errors
 var (
 	ErrContainerNewPathRequired     = errors.New("container -new-path is required")

@@ -29,6 +29,16 @@ type (
 	}
 )
 
+// NewWriter - creates an io.Writer and optionally an io.Closer based on the provided Writer configuration.
+// Supported types: "file", "stdout".
+// Supported formats: "plaintext", "json".
+//
+// Stdout writer:
+// - writes a formatted message to stdout based on the specified format.
+// - supports two formats: "plaintext" and "json".
+//
+// File writer:
+// - writes a formatted message to the provided file path based on the specified format.
 func NewWriter(opts *Writer) (io.Writer, io.Closer, error) {
 	switch *opts.Type {
 	case WriterTypeFile:

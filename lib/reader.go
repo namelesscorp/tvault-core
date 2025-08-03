@@ -33,6 +33,20 @@ type (
 	}
 )
 
+// NewReader - creates an io.Reader and optionally an io.Closer based on the provided Reader configuration.
+// Supported types: "flag", "file", "stdin".
+// Supported formats: "plaintext", "json".
+//
+// Stdin reader:
+// - reads a single line from stdin and returns it as a byte slice.
+// - prompts the user to enter a token.
+// - supports two formats: "plaintext" and "json".
+//
+// Flag reader:
+// - reads a single line from stdin and returns it as a byte slice.
+//
+// File reader:
+// - reads a file and returns it as a byte slice.
 func NewReader(opts *Reader) (io.Reader, io.ReadCloser, error) {
 	switch *opts.Type {
 	case ReaderTypeFile:

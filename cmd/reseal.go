@@ -9,15 +9,12 @@ import (
 	"github.com/namelesscorp/tvault-core/reseal"
 )
 
-const (
-	usageResealTemplate      = "usage: tvault-core reseal <subcommand> [options]\n"
-	subcommandResealTemplate = "available subcommands: [%s | %s | %s | %s | %s]\n"
-)
+const usageResealTemplate = "usage: tvault-core reseal <subcommand> [options]\n" +
+	"available subcommands: [%s | %s | %s | %s | %s]"
 
 func handleReseal(args []string) {
 	if len(args) < 1 {
-		fmt.Printf(usageResealTemplate)
-		fmt.Printf(subcommandResealTemplate,
+		fmt.Printf(usageResealTemplate,
 			subContainer, subIntegrityProvider, subTokenReader, subTokenWriter, subLogWriter,
 		)
 		return
@@ -28,7 +25,7 @@ func handleReseal(args []string) {
 		usedSubcommands = parseResealSubcommands(args, &options)
 	)
 	if !usedSubcommands[subContainer] {
-		fmt.Println("error: 'container' subcommand is required for reseal")
+		fmt.Printf(lib.ErrSubcommandRequired, subContainer, commandReseal)
 		return
 	}
 
@@ -98,7 +95,7 @@ func parseResealSubcommands(args []string, options *reseal.Options) map[string]b
 		case subLogWriter:
 			processResealLogWriter(options.LogWriter, subcommandArgs)
 		default:
-			fmt.Printf("unknown subcommand for reseal: '%s'\n", subcommand)
+			fmt.Printf(lib.ErrUnknownSubcommand, subcommand)
 			return usedSubcommands
 		}
 
@@ -116,7 +113,7 @@ func processResealContainer(options *lib.Container, args []string) {
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for reseal")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("failed to parse '%s' flags; %v\n", subContainer, err)
+		fmt.Printf(lib.ErrFailedParseFlags, subContainer, err)
 		os.Exit(1)
 	}
 }
@@ -128,7 +125,7 @@ func processResealIntegrityProvider(options *lib.IntegrityProvider, args []strin
 	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("failed to parse '%s' flags; %v\n", subIntegrityProvider, err)
+		fmt.Printf(lib.ErrFailedParseFlags, subIntegrityProvider, err)
 		os.Exit(1)
 	}
 }
@@ -142,7 +139,7 @@ func processResealTokenReader(options *lib.Reader, args []string) {
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("failed to parse '%s' flags; %v\n", subTokenReader, err)
+		fmt.Printf(lib.ErrFailedParseFlags, subTokenReader, err)
 		os.Exit(1)
 	}
 }
@@ -155,7 +152,7 @@ func processResealTokenWriter(options *lib.Writer, args []string) {
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("failed to parse '%s' flags; %v\n", subTokenWriter, err)
+		fmt.Printf(lib.ErrFailedParseFlags, subTokenWriter, err)
 		os.Exit(1)
 	}
 }
@@ -168,7 +165,7 @@ func processResealLogWriter(options *lib.Writer, args []string) {
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf("failed to parse '%s' flags; %v\n", subLogWriter, err)
+		fmt.Printf(lib.ErrFailedParseFlags, subLogWriter, err)
 		os.Exit(1)
 	}
 }

@@ -20,6 +20,8 @@ var (
 	}
 )
 
+// WriteFormatted - writes a formatted message to the provided io.Writer based on the specified format.
+// Supported formats: "plaintext", "json".
 func WriteFormatted(w io.Writer, format string, msg any) (int, error) {
 	switch format {
 	case WriterFormatPlaintext:

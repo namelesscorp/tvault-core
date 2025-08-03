@@ -255,6 +255,7 @@ func (c *container) SetMasterKey(key []byte) {
 	c.masterKey = key
 }
 
+// SetMetadata - sets the Metadata associated with the container.
 func (c *container) SetMetadata(metadata Metadata) {
 	c.metadata = metadata
 }

@@ -9,6 +9,7 @@ var (
 	logTable [256]byte
 )
 
+// init - initializes the logarithm and exponent tables for the Galois field GF(2^8).
 func init() {
 	// Correct initialization of logarithm and exponent tables
 
@@ -33,7 +34,7 @@ func init() {
 	logTable[0] = 0 // explicitly set log(0), but avoid using it
 }
 
-// gfMultiply - Direct multiplication in Galois field without using tables
+// gfMultiply - Direct multiplication in Galois field without using tables.
 func gfMultiply(a, b byte) byte {
 	var p byte
 	for i := 0; i < 8; i++ {
@@ -50,10 +51,12 @@ func gfMultiply(a, b byte) byte {
 	return p
 }
 
+// gfAdd - Direct addition in Galois field without using tables.
 func gfAdd(a, b byte) byte {
 	return a ^ b
 }
 
+// gfMul - Multiplication in Galois field GF(2^8) using the precomputed tables.
 func gfMul(a, b byte) byte {
 	if a == 0 || b == 0 {
 		return 0
@@ -61,6 +64,7 @@ func gfMul(a, b byte) byte {
 	return expTable[int(logTable[a])+int(logTable[b])]
 }
 
+// xtime - Multiplication by x in GF(2^8) using the precomputed tables.
 func xtime(a byte) byte {
 	// Multiplication by x in GF(2^8)
 	if a&0x80 != 0 {
@@ -69,6 +73,7 @@ func xtime(a byte) byte {
 	return a << 1
 }
 
+// gfInv - Inversion in GF(2^8) using the precomputed tables.
 func gfInv(a byte) byte {
 	if a == 0 {
 		panic("cannot invert 0")
@@ -77,6 +82,7 @@ func gfInv(a byte) byte {
 	return expTable[255-int(logTable[a])]
 }
 
+// gfDiv - Division in GF(2^8) using the precomputed tables.
 func gfDiv(a, b byte) byte {
 	if b == 0 {
 		panic("division by zero")
@@ -88,6 +94,7 @@ func gfDiv(a, b byte) byte {
 	return expTable[int(logTable[a])+255-int(logTable[b])]
 }
 
+// evalPoly - Evaluates a polynomial at a given point x using Horner's method.
 func evalPoly(coeffs []byte, x byte) byte {
 	// Check for an empty coefficients array
 	if len(coeffs) == 0 {
