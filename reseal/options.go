@@ -33,9 +33,9 @@ func (o *Options) Validate() error {
 func (o *Options) validateContainer() error {
 	switch {
 	case *o.Container.CurrentPath == "":
-		return lib.ValidationErr(lib.ErrCodeResealContainerCurrentPathRequired, lib.ErrContainerCurrentPathRequired)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrContainerCurrentPathRequired)
 	case *o.Container.FolderPath == "":
-		return lib.ValidationErr(lib.ErrCodeResealContainerFolderPathRequired, lib.ErrContainerFolderPathRequired)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrContainerFolderPathRequired)
 	default:
 		return nil
 	}
@@ -43,22 +43,22 @@ func (o *Options) validateContainer() error {
 
 func (o *Options) validateTokenReader() error {
 	if _, ok := lib.ReaderTypes[*o.TokenReader.Type]; !ok {
-		return lib.ValidationErr(lib.ErrCodeResealTokenReaderTypeInvalid, lib.ErrTokenReaderTypeInvalid)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenReaderTypeInvalid)
 	}
 
 	switch *o.TokenReader.Type {
 	case lib.ReaderTypeFlag:
 		if *o.TokenReader.Flag == "" {
-			return lib.ValidationErr(lib.ErrCodeResealTokenReaderFlagRequired, lib.ErrTokenReaderFlagRequired)
+			return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenReaderFlagRequired)
 		}
 	case lib.ReaderTypeFile:
 		if *o.TokenReader.Path == "" {
-			return lib.ValidationErr(lib.ErrCodeResealTokenReaderPathRequired, lib.ErrTokenReaderPathRequired)
+			return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenReaderPathRequired)
 		}
 	}
 
 	if _, ok := lib.ReaderFormats[*o.TokenReader.Format]; !ok {
-		return lib.ValidationErr(lib.ErrCodeResealTokenReaderFormatInvalid, lib.ErrTokenReaderFormatInvalid)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenReaderFormatInvalid)
 	}
 
 	return nil
@@ -66,15 +66,15 @@ func (o *Options) validateTokenReader() error {
 
 func (o *Options) validateTokenWriter() error {
 	if _, ok := lib.WriterTypes[*o.TokenWriter.Type]; !ok {
-		return lib.ValidationErr(lib.ErrCodeResealTokenWriterTypeInvalid, lib.ErrTokenWriterTypeInvalid)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenWriterTypeInvalid)
 	}
 
 	if *o.TokenWriter.Type == lib.WriterTypeFile && *o.TokenWriter.Path == "" {
-		return lib.ValidationErr(lib.ErrCodeResealTokenWriterPathRequired, lib.ErrTokenWriterPathRequired)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenWriterPathRequired)
 	}
 
 	if _, ok := lib.WriterFormats[*o.TokenWriter.Format]; !ok {
-		return lib.ValidationErr(lib.ErrCodeResealTokenWriterFormatInvalid, lib.ErrTokenWriterFormatInvalid)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrTokenWriterFormatInvalid)
 	}
 
 	return nil
@@ -82,15 +82,15 @@ func (o *Options) validateTokenWriter() error {
 
 func (o *Options) validateLogWriter() error {
 	if _, ok := lib.WriterTypes[*o.LogWriter.Type]; !ok {
-		return lib.ValidationErr(lib.ErrCodeResealLogWriterTypeInvalid, lib.ErrLogWriterTypeInvalid)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrLogWriterTypeInvalid)
 	}
 
 	if *o.LogWriter.Type == lib.WriterTypeFile && *o.LogWriter.Path == "" {
-		return lib.ValidationErr(lib.ErrCodeResealLogWriterPathRequired, lib.ErrLogWriterPathRequired)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrLogWriterPathRequired)
 	}
 
 	if _, ok := lib.WriterFormats[*o.LogWriter.Format]; !ok {
-		return lib.ValidationErr(lib.ErrCodeResealLogWriterFormatInvalid, lib.ErrLogWriterFormatInvalid)
+		return lib.ValidationErr(lib.CategoryReseal, lib.ErrLogWriterFormatInvalid)
 	}
 
 	return nil

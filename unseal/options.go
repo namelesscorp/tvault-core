@@ -24,9 +24,15 @@ func (o *Options) Validate() error {
 func (o *Options) validateContainer() error {
 	switch {
 	case *o.Container.CurrentPath == "":
-		return lib.ValidationErr(lib.ErrCodeUnsealContainerCurrentPathRequired, lib.ErrContainerCurrentPathRequired)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrContainerCurrentPathRequired,
+		)
 	case *o.Container.FolderPath == "":
-		return lib.ValidationErr(lib.ErrCodeUnsealContainerFolderPathRequired, lib.ErrContainerFolderPathRequired)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrContainerFolderPathRequired,
+		)
 	default:
 		return nil
 	}
@@ -34,22 +40,34 @@ func (o *Options) validateContainer() error {
 
 func (o *Options) validateTokenReader() error {
 	if _, ok := lib.ReaderTypes[*o.TokenReader.Type]; !ok {
-		return lib.ValidationErr(lib.ErrCodeUnsealTokenReaderTypeInvalid, lib.ErrTokenReaderTypeInvalid)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrTokenReaderTypeInvalid,
+		)
 	}
 
 	switch *o.TokenReader.Type {
 	case lib.ReaderTypeFlag:
 		if *o.TokenReader.Flag == "" {
-			return lib.ValidationErr(lib.ErrCodeUnsealTokenReaderFlagRequired, lib.ErrTokenReaderFlagRequired)
+			return lib.ValidationErr(
+				lib.CategoryUnseal,
+				lib.ErrTokenReaderFlagRequired,
+			)
 		}
 	case lib.ReaderTypeFile:
 		if *o.TokenReader.Path == "" {
-			return lib.ValidationErr(lib.ErrCodeUnsealTokenReaderPathRequired, lib.ErrTokenReaderPathRequired)
+			return lib.ValidationErr(
+				lib.CategoryUnseal,
+				lib.ErrTokenReaderPathRequired,
+			)
 		}
 	}
 
 	if _, ok := lib.ReaderFormats[*o.TokenReader.Format]; !ok {
-		return lib.ValidationErr(lib.ErrCodeUnsealTokenReaderFormatInvalid, lib.ErrTokenReaderFormatInvalid)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrTokenReaderFormatInvalid,
+		)
 	}
 
 	return nil
@@ -57,15 +75,24 @@ func (o *Options) validateTokenReader() error {
 
 func (o *Options) validateLogWriter() error {
 	if _, ok := lib.WriterTypes[*o.LogWriter.Type]; !ok {
-		return lib.ValidationErr(lib.ErrCodeUnsealLogWriterTypeInvalid, lib.ErrLogWriterTypeInvalid)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrLogWriterTypeInvalid,
+		)
 	}
 
 	if *o.LogWriter.Type == lib.WriterTypeFile && *o.LogWriter.Path == "" {
-		return lib.ValidationErr(lib.ErrCodeUnsealLogWriterPathRequired, lib.ErrLogWriterPathRequired)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrLogWriterPathRequired,
+		)
 	}
 
 	if _, ok := lib.WriterFormats[*o.LogWriter.Format]; !ok {
-		return lib.ValidationErr(lib.ErrCodeUnsealLogWriterFormatInvalid, lib.ErrLogWriterFormatInvalid)
+		return lib.ValidationErr(
+			lib.CategoryUnseal,
+			lib.ErrLogWriterFormatInvalid,
+		)
 	}
 
 	return nil
