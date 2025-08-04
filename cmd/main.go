@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/namelesscorp/tvault-core/container"
+	"github.com/namelesscorp/tvault-core/debug"
+	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/token"
 )
 
@@ -29,7 +31,27 @@ const (
 		"available commands: [%s | %s | %s | %s | %s]"
 )
 
+var (
+	subcommands = map[string]bool{
+		subContainer:         true,
+		subCompression:       true,
+		subIntegrityProvider: true,
+		subShamir:            true,
+		subTokenWriter:       true,
+		subTokenReader:       true,
+		subLogWriter:         true,
+	}
+)
+
 func main() {
+	defer func() {
+		debug.Stop()
+
+		if r := recover(); r != nil {
+			fmt.Println("recovered from panic: ", r)
+		}
+	}()
+
 	if len(os.Args) < 2 {
 		fmt.Printf(usageMessage, commandSeal, commandUnseal, commandReseal, commandVersion, commandInfo)
 		return
@@ -37,11 +59,18 @@ func main() {
 
 	switch os.Args[1] {
 	case commandSeal:
-		handleSeal(os.Args[2:])
+		if logWriter, err := handleSeal(os.Args[2:]); err != nil {
+			lib.ErrorFormatted(logWriter, commandSeal, err)
+		}
 	case commandUnseal:
-		handleUnseal(os.Args[2:])
+		if logWriter, err := handleUnseal(os.Args[2:]); err != nil {
+			lib.ErrorFormatted(logWriter, commandUnseal, err)
+		}
+
 	case commandReseal:
-		handleReseal(os.Args[2:])
+		if logWriter, err := handleReseal(os.Args[2:]); err != nil {
+			lib.ErrorFormatted(logWriter, commandReseal, err)
+		}
 	case commandVersion:
 		fmt.Printf(
 			"tvault-core:\n- cli = %s\n- container = v%d\n- token = v%d\n",
@@ -77,16 +106,6 @@ func main() {
 }
 
 func findNextSubcommand(args []string, startIdx int) int {
-	subcommands := map[string]bool{
-		subContainer:         true,
-		subCompression:       true,
-		subIntegrityProvider: true,
-		subShamir:            true,
-		subTokenWriter:       true,
-		subTokenReader:       true,
-		subLogWriter:         true,
-	}
-
 	for i := startIdx; i < len(args); i++ {
 		if args[i][0] == '-' {
 			continue

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 )
 
 func ErrorFormatted(logWriter *Writer, operation string, err error) {
@@ -28,7 +27,7 @@ func ErrorFormatted(logWriter *Writer, operation string, err error) {
 	case WriterFormatPlaintext:
 		message = fmt.Sprintf(
 			"[error]\noperation: %s;\nmessage: %s;\ncode: %d;\ntype: %d;\ncategory: %d;"+
-				"\ndetails: %s;\nsuggestion: %s;\nstacktrace: %s\n",
+				"\ndetails: %s;\nsuggestion: %s;",
 			operation,
 			errLib.Message,
 			errLib.Code,
@@ -36,7 +35,6 @@ func ErrorFormatted(logWriter *Writer, operation string, err error) {
 			errLib.Category,
 			errLib.Details,
 			errLib.Suggestion,
-			strings.Join(errLib.Stacktrace, ": "),
 		)
 	case WriterFormatJSON:
 		message = errLib

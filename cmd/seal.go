@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/namelesscorp/tvault-core/compression"
 	"github.com/namelesscorp/tvault-core/integrity"
@@ -14,33 +13,37 @@ import (
 const usageSealTemplate = "usage: tvault-core seal <subcommand> [options]\n" +
 	"available subcommands: [%s | %s | %s | %s | %s | %s]"
 
-func handleSeal(args []string) {
+func handleSeal(args []string) (*lib.Writer, error) {
+	var options = createDefaultSealOptions()
 	if len(args) < 1 {
-		fmt.Printf(usageSealTemplate,
+		return options.LogWriter, fmt.Errorf(
+			usageSealTemplate,
 			subContainer, subCompression, subIntegrityProvider,
 			subShamir, subTokenWriter, subLogWriter,
 		)
-		return
 	}
 
 	var (
-		options         = createDefaultSealOptions()
-		usedSubcommands = parseSealSubcommands(args, &options)
+		usedSubcommands = make(map[string]bool)
+		err             error
 	)
+	if usedSubcommands, err = parseSealSubcommands(args, &options); err != nil {
+		return options.LogWriter, err
+	}
+
 	if !usedSubcommands[subContainer] {
-		fmt.Printf(lib.ErrSubcommandRequired, subContainer, commandSeal)
-		return
+		return options.LogWriter, fmt.Errorf(lib.ErrSubcommandRequired, subContainer, commandSeal)
 	}
 
-	if err := options.Validate(); err != nil {
-		lib.ErrorFormatted(options.LogWriter, commandSeal, err)
-		return
+	if err = options.Validate(); err != nil {
+		return options.LogWriter, err
 	}
 
-	if err := seal.Seal(options); err != nil {
-		lib.ErrorFormatted(options.LogWriter, commandSeal, err)
-		return
+	if err = seal.Seal(options); err != nil {
+		return options.LogWriter, err
 	}
+
+	return options.LogWriter, nil
 }
 
 func createDefaultSealOptions() seal.Options {
@@ -77,7 +80,7 @@ func createDefaultSealOptions() seal.Options {
 	}
 }
 
-func parseSealSubcommands(args []string, options *seal.Options) map[string]bool {
+func parseSealSubcommands(args []string, options *seal.Options) (map[string]bool, error) {
 	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
 		var (
@@ -90,29 +93,40 @@ func parseSealSubcommands(args []string, options *seal.Options) map[string]bool 
 
 		switch subcommand {
 		case subContainer:
-			processSealContainer(options.Container, subcommandArgs)
+			if err := processSealContainer(options.Container, subcommandArgs); err != nil {
+				return nil, err
+			}
 		case subCompression:
-			processSealCompression(options.Compression, subcommandArgs)
+			if err := processSealCompression(options.Compression, subcommandArgs); err != nil {
+				return nil, err
+			}
 		case subIntegrityProvider:
-			processSealIntegrityProvider(options.IntegrityProvider, subcommandArgs)
+			if err := processSealIntegrityProvider(options.IntegrityProvider, subcommandArgs); err != nil {
+				return nil, err
+			}
 		case subShamir:
-			processSealShamir(options.Shamir, subcommandArgs)
+			if err := processSealShamir(options.Shamir, subcommandArgs); err != nil {
+				return nil, err
+			}
 		case subTokenWriter:
-			processSealTokenWriter(options.TokenWriter, subcommandArgs)
+			if err := processSealTokenWriter(options.TokenWriter, subcommandArgs); err != nil {
+				return nil, err
+			}
 		case subLogWriter:
-			processSealLogWriter(options.LogWriter, subcommandArgs)
+			if err := processSealLogWriter(options.LogWriter, subcommandArgs); err != nil {
+				return nil, err
+			}
 		default:
-			fmt.Printf(lib.ErrUnknownSubcommand, subcommand)
-			return usedSubcommands
+			return usedSubcommands, fmt.Errorf(lib.ErrUnknownSubcommand, subcommand)
 		}
 
 		i = nextSubcommandIndex
 	}
 
-	return usedSubcommands
+	return usedSubcommands, nil
 }
 
-func processSealContainer(options *lib.Container, args []string) {
+func processSealContainer(options *lib.Container, args []string) error {
 	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
 
 	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
@@ -120,35 +134,38 @@ func processSealContainer(options *lib.Container, args []string) {
 	options.Passphrase = flagSet.String("passphrase", "", "container passphrase")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf(lib.ErrFailedParseFlags, subContainer, err)
-		os.Exit(1)
+		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)
 	}
+
+	return nil
 }
 
-func processSealCompression(options *lib.Compression, args []string) {
+func processSealCompression(options *lib.Compression, args []string) error {
 	var flagSet = flag.NewFlagSet(subCompression, flag.ExitOnError)
 
 	options.Type = flagSet.String("type", compression.TypeNameZip, "compression type [zip]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf(lib.ErrFailedParseFlags, subCompression, err)
-		os.Exit(1)
+		return fmt.Errorf(lib.ErrFailedParseFlags, subCompression, err)
 	}
+
+	return nil
 }
 
-func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string) {
+func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string) error {
 	var flagSet = flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
 
 	options.Type = flagSet.String("type", integrity.TypeNameHMAC, "type [none | hmac]")
 	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf(lib.ErrFailedParseFlags, subIntegrityProvider, err)
-		os.Exit(1)
+		return fmt.Errorf(lib.ErrFailedParseFlags, subIntegrityProvider, err)
 	}
+
+	return nil
 }
 
-func processSealShamir(options *lib.Shamir, args []string) {
+func processSealShamir(options *lib.Shamir, args []string) error {
 	var flagSet = flag.NewFlagSet(subShamir, flag.ExitOnError)
 
 	options.Shares = flagSet.Int("shares", 5, "number of shares")
@@ -156,12 +173,13 @@ func processSealShamir(options *lib.Shamir, args []string) {
 	options.IsEnabled = flagSet.Bool("is-enabled", true, "enable Shamir")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf(lib.ErrFailedParseFlags, subShamir, err)
-		os.Exit(1)
+		return fmt.Errorf(lib.ErrFailedParseFlags, subShamir, err)
 	}
+
+	return nil
 }
 
-func processSealTokenWriter(options *lib.Writer, args []string) {
+func processSealTokenWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subTokenWriter, flag.ExitOnError)
 
 	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
@@ -169,12 +187,13 @@ func processSealTokenWriter(options *lib.Writer, args []string) {
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf(lib.ErrFailedParseFlags, subTokenWriter, err)
-		os.Exit(1)
+		return fmt.Errorf(lib.ErrFailedParseFlags, subTokenWriter, err)
 	}
+
+	return nil
 }
 
-func processSealLogWriter(options *lib.Writer, args []string) {
+func processSealLogWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subLogWriter, flag.ExitOnError)
 
 	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
@@ -182,7 +201,8 @@ func processSealLogWriter(options *lib.Writer, args []string) {
 	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
 
 	if err := flagSet.Parse(args); err != nil {
-		fmt.Printf(lib.ErrFailedParseFlags, subLogWriter, err)
-		os.Exit(1)
+		return fmt.Errorf(lib.ErrFailedParseFlags, subLogWriter, err)
 	}
+
+	return nil
 }

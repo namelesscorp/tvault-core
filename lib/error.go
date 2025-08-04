@@ -3,8 +3,13 @@ package lib
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+
+	"github.com/namelesscorp/tvault-core/debug"
 )
+
+var unwrappedErrorList = make(map[error]struct{})
 
 type ErrorType byte
 
@@ -389,16 +394,25 @@ var (
 	ErrInvalidContainerSignature = errors.New("invalid container signature")
 )
 
-type Error struct {
-	Message    string        `json:"message"`
-	Code       ErrorCode     `json:"code"`
-	Type       ErrorType     `json:"type"`
-	Category   ErrorCategory `json:"category"`
-	Details    string        `json:"details"`
-	Suggestion string        `json:"suggestion"`
-	Stacktrace []string      `json:"stacktrace"`
-	Wrapped    error         `json:"-"`
-}
+type (
+	Error struct {
+		Message    string        `json:"message"`
+		Code       ErrorCode     `json:"code"`
+		Type       ErrorType     `json:"type"`
+		Category   ErrorCategory `json:"category"`
+		Details    string        `json:"details"`
+		Suggestion string        `json:"suggestion"`
+		Unwrapped  []string      `json:"unwrapped"`
+		Stacktrace []StackFrame  `json:"stacktrace"`
+		Wrapped    error         `json:"-"`
+	}
+
+	StackFrame struct {
+		Function string `json:"function"`
+		File     string `json:"file"`
+		Line     int    `json:"line"`
+	}
+)
 
 func (e *Error) Error() string {
 	return fmt.Sprintf("[E-%04X] %s", e.Code, e.Message)
@@ -436,9 +450,8 @@ func NewError(
 	code ErrorCode,
 	message, details, suggestion string,
 	wrapped error,
-	stacktrace []string,
 ) *Error {
-	return &Error{
+	err := &Error{
 		Type:       errorType,
 		Category:   category,
 		Code:       code,
@@ -446,8 +459,44 @@ func NewError(
 		Details:    details,
 		Suggestion: suggestion,
 		Wrapped:    wrapped,
-		Stacktrace: stacktrace,
+		Unwrapped:  unwrap(wrapped),
+		Stacktrace: make([]StackFrame, 0),
 	}
+	if debug.IsEnabled() {
+		err.Stacktrace = captureStackTrace(3)
+	}
+
+	return err
+}
+
+func captureStackTrace(skip int) []StackFrame {
+	const depth = 32
+
+	var (
+		stackFrames     []StackFrame
+		programCounters = make([]uintptr, depth)
+		n               = runtime.Callers(skip, programCounters)
+	)
+
+	if n == 0 {
+		return stackFrames
+	}
+
+	var frames = runtime.CallersFrames(programCounters[:n])
+	for {
+		var frame, more = frames.Next()
+		stackFrames = append(stackFrames, StackFrame{
+			Function: frame.Function,
+			File:     frame.File,
+			Line:     frame.Line,
+		})
+
+		if !more {
+			break
+		}
+	}
+
+	return stackFrames
 }
 
 func ValidationErr(category ErrorCategory, err error) *Error {
@@ -459,7 +508,6 @@ func ValidationErr(category ErrorCategory, err error) *Error {
 		"",
 		errorToSuggestion[err],
 		err,
-		unwrapErrorToStacktrace(err),
 	)
 }
 
@@ -472,23 +520,22 @@ func InternalErr(category ErrorCategory, code ErrorCode, message string, details
 		details,
 		"",
 		err,
-		unwrapErrorToStacktrace(err),
 	)
 }
 
 func IOErr(category ErrorCategory, code ErrorCode, message string, suggestion string, err error) *Error {
-	return NewError(ErrorTypeIO, category, code, message, "", suggestion, err, unwrapErrorToStacktrace(err))
+	return NewError(ErrorTypeIO, category, code, message, "", suggestion, err)
 }
 
 func CryptoErr(category ErrorCategory, code ErrorCode, message string, details string, err error) *Error {
-	return NewError(ErrorTypeCrypto, category, code, message, details, "", err, unwrapErrorToStacktrace(err))
+	return NewError(ErrorTypeCrypto, category, code, message, details, "", err)
 }
 
 func FormatErr(category ErrorCategory, code ErrorCode, message string, suggestion string, err error) *Error {
-	return NewError(ErrorTypeFormat, category, code, message, "", suggestion, err, unwrapErrorToStacktrace(err))
+	return NewError(ErrorTypeFormat, category, code, message, "", suggestion, err)
 }
 
-func unwrapErrorToStacktrace(err error) []string {
+func unwrap(err error) []string {
 	if err == nil {
 		return nil
 	}
@@ -497,18 +544,34 @@ func unwrapErrorToStacktrace(err error) []string {
 		return []string{}
 	}
 
-	var stacktrace = strings.Split(err.Error(), ":")
-	for i, s := range stacktrace {
-		if s == "" {
-			continue
-		}
+	unwrappedErrorList[err] = struct{}{}
 
-		stacktrace[i] = strings.TrimSpace(s)
+	seen := make(map[string]struct{})
+	var result []string
+
+	msgs := strings.Split(err.Error(), ":")
+	for _, msg := range msgs {
+		msg = strings.TrimSpace(msg)
+		if msg != "" {
+			if _, ok := seen[msg]; !ok {
+				seen[msg] = struct{}{}
+				result = append(result, msg)
+			}
+		}
 	}
 
-	return stacktrace
-}
+	for e := range unwrappedErrorList {
+		msg := strings.TrimSpace(e.Error())
+		if msg != "" {
+			if _, ok := seen[msg]; !ok {
+				seen[msg] = struct{}{}
+				result = append(result, msg)
+			}
+		}
+	}
 
+	return result
+}
 func AsError(err error) (*Error, bool) {
 	var e *Error
 	if errors.As(err, &e) {
