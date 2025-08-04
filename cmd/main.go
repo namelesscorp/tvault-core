@@ -61,15 +61,18 @@ func main() {
 	case commandSeal:
 		if logWriter, err := handleSeal(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandSeal, err)
+			return
 		}
 	case commandUnseal:
 		if logWriter, err := handleUnseal(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandUnseal, err)
+			return
 		}
 
 	case commandReseal:
 		if logWriter, err := handleReseal(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandReseal, err)
+			return
 		}
 	case commandVersion:
 		fmt.Printf(

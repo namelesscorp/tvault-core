@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 )
 
 func ErrorFormatted(logWriter *Writer, operation string, err error) {
@@ -18,7 +17,6 @@ func ErrorFormatted(logWriter *Writer, operation string, err error) {
 	var errLib *Error
 	if ok := errors.As(err, &errLib); !ok {
 		fmt.Printf("[error]\noperation: %s;\nmessage: %v", operation, err)
-		os.Exit(1)
 		return
 	}
 
@@ -43,6 +41,4 @@ func ErrorFormatted(logWriter *Writer, operation string, err error) {
 	if _, err = WriteFormatted(writer, *logWriter.Format, message); err != nil {
 		fmt.Printf("failed to write error message; %v", err)
 	}
-
-	os.Exit(1)
 }

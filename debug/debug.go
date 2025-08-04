@@ -15,7 +15,7 @@ import (
 const (
 	defaultProfileDir    = "./debug/profiles"
 	timeFormat           = "20060102_150405"
-	cpuProfileRate       = 1000
+	cpuProfileRate       = 100000
 	blockProfileRate     = 1
 	mutexProfileFraction = 1
 )
@@ -56,6 +56,8 @@ func (d *Debug) Start() error {
 	if d.enabled {
 		return fmt.Errorf("profiling already started")
 	}
+
+	runtime.SetCPUProfileRate(cpuProfileRate)
 
 	if err := os.MkdirAll(d.profileDir, 0755); err != nil {
 		return err
