@@ -8,17 +8,18 @@ import (
 	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/seal"
+	"github.com/namelesscorp/tvault-core/token"
 )
 
 const usageSealTemplate = "usage: tvault-core seal <subcommand> [options]\n" +
-	"available subcommands: [%s | %s | %s | %s | %s | %s]"
+	"available subcommands: [%s | %s | %s | %s | %s | %s | %s]"
 
 func handleSeal(args []string) (*lib.Writer, error) {
 	var options = createDefaultSealOptions()
 	if len(args) < 1 {
 		return options.LogWriter, fmt.Errorf(
 			usageSealTemplate,
-			subContainer, subCompression, subIntegrityProvider,
+			subContainer, subToken, subCompression, subIntegrityProvider,
 			subShamir, subTokenWriter, subLogWriter,
 		)
 	}
@@ -53,6 +54,9 @@ func createDefaultSealOptions() seal.Options {
 			CurrentPath: lib.StringPtr(""),
 			FolderPath:  lib.StringPtr(""),
 			Passphrase:  lib.StringPtr(""),
+		},
+		Token: &lib.Token{
+			Type: lib.StringPtr(token.TypeNameShare),
 		},
 		Compression: &lib.Compression{
 			Type: lib.StringPtr(compression.TypeNameZip),
@@ -96,6 +100,10 @@ func parseSealSubcommands(args []string, options *seal.Options) (map[string]bool
 			if err := processSealContainer(options.Container, subcommandArgs); err != nil {
 				return nil, err
 			}
+		case subToken:
+			if err := processSealToken(options.Token, subcommandArgs); err != nil {
+				return nil, err
+			}
 		case subCompression:
 			if err := processSealCompression(options.Compression, subcommandArgs); err != nil {
 				return nil, err
@@ -135,6 +143,18 @@ func processSealContainer(options *lib.Container, args []string) error {
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)
+	}
+
+	return nil
+}
+
+func processSealToken(options *lib.Token, args []string) error {
+	var flagSet = flag.NewFlagSet(subToken, flag.ExitOnError)
+
+	options.Type = flagSet.String("type", token.TypeNameShare, "type [none | share | master]")
+
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf(lib.ErrFailedParseFlags, subToken, err)
 	}
 
 	return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/seal"
 	"github.com/namelesscorp/tvault-core/shamir"
+	"github.com/namelesscorp/tvault-core/token"
 	"github.com/namelesscorp/tvault-core/unseal"
 )
 
@@ -32,43 +33,63 @@ func Reseal(opts Options) error {
 		Comment:   currentContainer.GetMetadata().Comment,
 	})
 
-	derivedPassphrase := unseal.DeriveIntegrityProviderPassphrase(
-		*opts.IntegrityProvider.CurrentPassphrase,
-		currentContainer.GetHeader().Salt,
-	)
-
-	tokenString, err := unseal.GetTokenString(opts.TokenReader)
-	if err != nil {
-		return lib.InternalErr(
-			lib.CategoryReseal,
-			lib.ErrCodeResealGetTokenStringError,
-			lib.ErrMessageResealGetTokenStringError,
-			"",
-			err,
+	var masterKey []byte
+	switch currentContainer.GetHeader().TokenType {
+	case token.TypeMaster, token.TypeShare:
+		derivedPassphrase := unseal.DeriveIntegrityProviderPassphrase(
+			*opts.IntegrityProvider.CurrentPassphrase,
+			currentContainer.GetHeader().Salt,
 		)
-	}
 
-	masterKey, shares, err := unseal.ParseTokens(tokenString, *opts.TokenReader.Format, derivedPassphrase)
-	if err != nil {
-		return lib.InternalErr(
-			lib.CategoryReseal,
-			lib.ErrCodeResealParseTokensError,
-			lib.ErrMessageResealParseTokensError,
-			"",
-			err,
-		)
-	}
-	if len(masterKey) == 0 {
-		masterKey, err = unseal.RestoreMasterKey(shares, derivedPassphrase)
+		var tokenString string
+		tokenString, err = unseal.GetTokenString(opts.TokenReader)
 		if err != nil {
 			return lib.InternalErr(
 				lib.CategoryReseal,
-				lib.ErrCodeResealRestoreMasterKeyError,
-				lib.ErrMessageResealRestoreMasterKeyError,
+				lib.ErrCodeResealGetTokenStringError,
+				lib.ErrMessageResealGetTokenStringError,
 				"",
 				err,
 			)
 		}
+
+		var shares []shamir.Share
+		masterKey, shares, err = unseal.ParseTokens(
+			currentContainer.GetHeader().TokenType,
+			tokenString,
+			*opts.TokenReader.Format,
+			derivedPassphrase,
+		)
+		if err != nil {
+			return lib.InternalErr(
+				lib.CategoryReseal,
+				lib.ErrCodeResealParseTokensError,
+				lib.ErrMessageResealParseTokensError,
+				"",
+				err,
+			)
+		}
+
+		if len(masterKey) == 0 {
+			masterKey, err = unseal.RestoreMasterKey(shares, derivedPassphrase)
+			if err != nil {
+				return lib.InternalErr(
+					lib.CategoryReseal,
+					lib.ErrCodeResealRestoreMasterKeyError,
+					lib.ErrMessageResealRestoreMasterKeyError,
+					"",
+					err,
+				)
+			}
+		}
+	case token.TypeNone:
+		var salt = currentContainer.GetHeader().Salt
+		masterKey = lib.PBKDF2Key(
+			[]byte(*opts.Container.Passphrase),
+			salt[:],
+			int(currentContainer.GetHeader().Iterations),
+			lib.KeyLen,
+		)
 	}
 
 	data, _, err := seal.CompressFolder(
@@ -107,10 +128,14 @@ func Reseal(opts Options) error {
 		)
 	}
 
+	if currentContainer.GetHeader().TokenType == token.TypeNone {
+		return nil
+	}
+
 	salt := currentContainer.GetHeader().Salt
 	integrityProvider, additionalPassword, err := newIntegrityArtifacts(
 		&lib.IntegrityProvider{
-			Type:          getProviderNamePtr(shares),
+			Type:          lib.StringPtr(integrity.ConvertIDToName(currentContainer.GetHeader().ProviderType)),
 			NewPassphrase: getIntegrityProviderPassphrasePtr(opts.IntegrityProvider),
 		},
 		salt[:],
@@ -129,8 +154,8 @@ func Reseal(opts Options) error {
 		}(closer)
 	}
 
-	switch {
-	case len(shares) > 1:
+	switch currentContainer.GetHeader().TokenType {
+	case token.TypeShare:
 		var (
 			numShares = int(currentContainer.GetHeader().Shares)
 			threshold = int(currentContainer.GetHeader().Threshold)
@@ -146,25 +171,16 @@ func Reseal(opts Options) error {
 			*opts.TokenWriter.Format,
 			tokenWriter,
 		)
-	case len(shares) == 1:
+	case token.TypeMaster:
 		return seal.SaveMasterToken(
 			additionalPassword,
 			masterKey,
 			*opts.TokenWriter.Format,
-			integrityProvider.ID(),
 			tokenWriter,
 		)
 	}
 
 	return nil
-}
-
-func getProviderNamePtr(shares []shamir.Share) *string {
-	if len(shares) == 0 {
-		return nil
-	}
-
-	return lib.StringPtr(integrity.ConvertIDToName(shares[0].ProviderID))
 }
 
 func getContainerPath(containerOpts *lib.Container) string {

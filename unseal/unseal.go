@@ -29,41 +29,63 @@ func Unseal(opts Options) error {
 		)
 	}
 
-	derivedPassphrase := DeriveIntegrityProviderPassphrase(*opts.IntegrityProvider.CurrentPassphrase, cont.GetHeader().Salt)
-
-	tokenString, err := GetTokenString(opts.TokenReader)
-	if err != nil {
-		return lib.InternalErr(
-			lib.CategoryUnseal,
-			lib.ErrCodeUnsealGetTokenStringError,
-			lib.ErrMessageUnsealGetTokenStringError,
-			"",
-			err,
+	var masterKey []byte
+	switch cont.GetHeader().TokenType {
+	case token.TypeMaster, token.TypeShare:
+		derivedPassphrase := DeriveIntegrityProviderPassphrase(
+			*opts.IntegrityProvider.CurrentPassphrase,
+			cont.GetHeader().Salt,
 		)
-	}
 
-	masterKey, shares, err := ParseTokens(tokenString, *opts.TokenReader.Format, derivedPassphrase)
-	if err != nil {
-		return lib.InternalErr(
-			lib.CategoryUnseal,
-			lib.ErrCodeUnsealParseTokensError,
-			lib.ErrMessageUnsealParseTokensError,
-			"",
-			err,
-		)
-	}
-
-	if len(masterKey) == 0 {
-		masterKey, err = RestoreMasterKey(shares, derivedPassphrase)
+		var tokenString string
+		tokenString, err = GetTokenString(opts.TokenReader)
 		if err != nil {
 			return lib.InternalErr(
 				lib.CategoryUnseal,
-				lib.ErrCodeUnsealRestoreMasterKeyError,
-				lib.ErrMessageUnsealRestoreMasterKeyError,
+				lib.ErrCodeUnsealGetTokenStringError,
+				lib.ErrMessageUnsealGetTokenStringError,
 				"",
 				err,
 			)
 		}
+
+		var shares []shamir.Share
+		masterKey, shares, err = ParseTokens(
+			cont.GetHeader().TokenType,
+			tokenString,
+			*opts.TokenReader.Format,
+			derivedPassphrase,
+		)
+		if err != nil {
+			return lib.InternalErr(
+				lib.CategoryUnseal,
+				lib.ErrCodeUnsealParseTokensError,
+				lib.ErrMessageUnsealParseTokensError,
+				"",
+				err,
+			)
+		}
+
+		if len(masterKey) == 0 {
+			masterKey, err = RestoreMasterKey(shares, derivedPassphrase)
+			if err != nil {
+				return lib.InternalErr(
+					lib.CategoryUnseal,
+					lib.ErrCodeUnsealRestoreMasterKeyError,
+					lib.ErrMessageUnsealRestoreMasterKeyError,
+					"",
+					err,
+				)
+			}
+		}
+	case token.TypeNone:
+		var salt = cont.GetHeader().Salt
+		masterKey = lib.PBKDF2Key(
+			[]byte(*opts.Container.Passphrase),
+			salt[:],
+			int(cont.GetHeader().Iterations),
+			lib.KeyLen,
+		)
 	}
 
 	if err = cont.Decrypt(masterKey); err != nil {
@@ -144,7 +166,11 @@ func GetTokenString(tokenReader *lib.Reader) (string, error) {
 	return string(content), nil
 }
 
-func ParseTokens(tokenString, tokenFormat string, addPwd []byte) (masterKey []byte, shares []shamir.Share, err error) {
+func ParseTokens(
+	tokenType byte,
+	tokenString, tokenFormat string,
+	addPwd []byte,
+) (masterKey []byte, shares []shamir.Share, err error) {
 	switch tokenFormat {
 	case lib.ReaderFormatPlaintext:
 		tokenList := strings.Split(tokenString, "|")
@@ -158,7 +184,7 @@ func ParseTokens(tokenString, tokenFormat string, addPwd []byte) (masterKey []by
 			)
 		}
 
-		return parseTokenList(tokenList, addPwd)
+		return parseTokenList(tokenType, tokenList, addPwd)
 	case lib.ReaderFormatJSON:
 		var list token.List
 		if err = json.Unmarshal([]byte(tokenString), &list); err != nil {
@@ -171,13 +197,17 @@ func ParseTokens(tokenString, tokenFormat string, addPwd []byte) (masterKey []by
 			)
 		}
 
-		return parseTokenList(list.TokenList, addPwd)
+		return parseTokenList(tokenType, list.TokenList, addPwd)
 	default:
 		return nil, nil, lib.ErrUnknownReaderType
 	}
 }
 
-func parseTokenList(tokenList []string, addPwd []byte) (masterKey []byte, shares []shamir.Share, err error) {
+func parseTokenList(
+	tokenType byte,
+	tokenList []string,
+	addPwd []byte,
+) (masterKey []byte, shares []shamir.Share, err error) {
 	for _, raw := range tokenList {
 		var tok token.Token
 		if tok, err = token.Parse([]byte(raw), addPwd); err != nil {
@@ -190,7 +220,7 @@ func parseTokenList(tokenList []string, addPwd []byte) (masterKey []byte, shares
 			)
 		}
 
-		switch byte(tok.Type) {
+		switch tokenType {
 		case token.TypeMaster:
 			if masterKey, err = hex.DecodeString(tok.Value); err != nil {
 				return nil, nil, lib.FormatErr(
@@ -203,10 +233,9 @@ func parseTokenList(tokenList []string, addPwd []byte) (masterKey []byte, shares
 			}
 
 			shares = append(shares, shamir.Share{
-				ID:         byte(tok.ID),
-				Value:      masterKey,
-				ProviderID: byte(tok.ProviderID),
-				Signature:  []byte{},
+				ID:        byte(tok.ID),
+				Value:     masterKey,
+				Signature: []byte{},
 			})
 		case token.TypeShare:
 			var share shamir.Share
@@ -247,10 +276,9 @@ func createShareFromToken(item token.Token) (shamir.Share, error) {
 	}
 
 	return shamir.Share{
-		ID:         byte(item.ID),
-		Value:      val,
-		ProviderID: byte(item.ProviderID),
-		Signature:  sig,
+		ID:        byte(item.ID),
+		Value:     val,
+		Signature: sig,
 	}, nil
 }
 

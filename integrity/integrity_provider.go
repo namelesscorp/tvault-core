@@ -53,3 +53,16 @@ func ConvertIDToName(id byte) string {
 		return ""
 	}
 }
+
+func ConvertNameToID(name string) byte {
+	switch name {
+	case TypeNameNone:
+		return TypeNone
+	case TypeNameHMAC:
+		return TypeHMAC
+	case TypeNameEd25519:
+		return TypeEd25519
+	default:
+		return TypeNone
+	}
+}

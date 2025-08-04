@@ -20,6 +20,7 @@ const (
 	commandInfo    = "info"
 
 	subContainer         = "container"
+	subToken             = "token"
 	subCompression       = "compression"
 	subIntegrityProvider = "integrity-provider"
 	subShamir            = "shamir"
@@ -34,6 +35,7 @@ const (
 var (
 	subcommands = map[string]bool{
 		subContainer:         true,
+		subToken:             true,
 		subCompression:       true,
 		subIntegrityProvider: true,
 		subShamir:            true,

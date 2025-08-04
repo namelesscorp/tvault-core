@@ -112,6 +112,7 @@ func processUnsealContainer(options *lib.Container, args []string) error {
 
 	options.CurrentPath = flagSet.String("current-path", "", "current path to container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for unseal")
+	options.Passphrase = flagSet.String("passphrase", "", "passphrase to decrypt container file")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)

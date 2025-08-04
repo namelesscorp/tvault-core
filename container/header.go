@@ -21,19 +21,28 @@ type Header struct {
 	Salt            [16]byte // salt for passphrase
 	Iterations      uint32   // PBKDF2 rounds
 	CompressionType uint8    // compression type for data - "0x01"
+	ProviderType    uint8    // provider type for token - "0x01"
+	TokenType       uint8    // token type - "0x01"
 	Nonce           [12]byte // AES‑GCM nonce (number used once)
 	MetadataSize    uint32   // metadata size
 	Shares          uint8    // shamir number of shares
 	Threshold       uint8    // shamir threshold count
 }
 
-func NewHeader(compressionType byte, shares, threshold uint8) (Header, error) {
+func NewHeader(
+	compressionType byte,
+	providerType byte,
+	tokenType byte,
+	shares, threshold uint8,
+) (Header, error) {
 	var h = Header{
 		Version:         Version,
 		Iterations:      lib.Iterations,
 		CompressionType: compressionType,
 		Shares:          shares,
 		Threshold:       threshold,
+		ProviderType:    providerType,
+		TokenType:       tokenType,
 	}
 
 	if _, err := rand.Read(h.Salt[:]); err != nil {

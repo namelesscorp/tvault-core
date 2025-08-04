@@ -220,7 +220,7 @@ func (c *container) Read() error {
 		}
 	}(f)
 
-	if c.header, err = NewHeader(0, 0, 0); err != nil {
+	if c.header, err = NewHeader(0, 0, 0, 0, 0); err != nil {
 		return lib.IOErr(
 			lib.CategoryContainer,
 			lib.ErrCodeInitHeaderError,

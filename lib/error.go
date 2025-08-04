@@ -147,6 +147,10 @@ const (
 	ErrCodeResealWriteContainerError           ErrorCode = 0x0099
 	ErrCodeResealCreateIntegrityProviderError  ErrorCode = 0x00100
 	ErrCodeResealDeriveAdditionalPasswordError ErrorCode = 0x00101
+
+	ErrCodeTokenTypeInvalid             ErrorCode = 0x00102
+	ErrCodeShamirIsEnabledTrueRequired  ErrorCode = 0x00103
+	ErrCodeIntegrityProviderTypeNotNone ErrorCode = 0x00104
 )
 
 const (
@@ -247,6 +251,9 @@ const (
 	SuggestionContainerFolderPath  = "specify the container folder path using the -folder-path flag"
 	SuggestionContainerPassphrase  = "specify the container passphrase using the -passphrase flag"
 
+	SuggestionTokenType = "specify a valid token type, available options: [none | share | master]"
+
+	SuggestionIntegrityProviderNotNone       = "for token type none, you must not specify an integrity provider"
 	SuggestionIntegrityProviderType          = "specify a valid integrity provider type, available options: [none | hmac]"
 	SuggestionIntegrityProviderNewPassphrase = "for integrity provider type hmac, you must specify a new passphrase using the -new-passphrase flag"
 
@@ -265,6 +272,7 @@ const (
 	SuggestionTokenReaderPath   = "for token reader type file, you must specify a path using the -path flag"
 	SuggestionTokenReaderFlag   = "for token reader type flag, you must specify a flag using the -flag parameter"
 
+	SuggestionShamirIsEnabledTrueRequired   = "specify true for -is-enabled using the token -type=[share] flag"
 	SuggestionShamirSharesEqual0            = "specify a number of shares greater than 0 using the -shares flag"
 	SuggestionShamirThresholdEqual0         = "specify a threshold greater than 0 using the -threshold flag"
 	SuggestionShamirSharesLessThanThreshold = "number of shares must be greater than or equal to the threshold"
@@ -281,6 +289,9 @@ var (
 	ErrContainerFolderPathRequired  = errors.New("container -folder-path is required")
 	ErrContainerPassphraseRequired  = errors.New("container -passphrase is required")
 
+	ErrTokenTypeInvalid = errors.New("token -type must be [none | share | master]")
+
+	ErrIntegrityProviderTypeNotNone           = errors.New("integrity-provider -type must be [none] for token -type=[none]")
 	ErrIntegrityProviderTypeInvalid           = errors.New("integrity-provider -type must be [none | hmac ]")
 	ErrIntegrityProviderNewPassphraseRequired = errors.New("integrity-provider -new-passphrase is required for integrity-provider -type=[hmac]")
 
@@ -299,6 +310,7 @@ var (
 	ErrTokenReaderPathRequired  = errors.New("token-reader -path is required for token-reader -type=[file]")
 	ErrTokenReaderFlagRequired  = errors.New("token-reader -flag is required for token-reader -type=[flag]")
 
+	ErrShamirIsEnabledTrueRequired   = errors.New("shamir -is-enabled=[true] is required for token -type=[share]")
 	ErrShamirSharesEqual0            = errors.New("shamir -shares must be greater than 0")
 	ErrShamirThresholdEqual0         = errors.New("shamir -threshold must be greater than 0")
 	ErrShamirSharesLessThanThreshold = errors.New("shamir -shares must be less than shamir-threshold")
@@ -314,6 +326,9 @@ var errorToSuggestion = map[error]string{
 	ErrContainerFolderPathRequired:  SuggestionContainerFolderPath,
 	ErrContainerPassphraseRequired:  SuggestionContainerPassphrase,
 
+	ErrTokenTypeInvalid: SuggestionTokenType,
+
+	ErrIntegrityProviderTypeNotNone:           SuggestionIntegrityProviderNotNone,
 	ErrIntegrityProviderTypeInvalid:           SuggestionIntegrityProviderType,
 	ErrIntegrityProviderNewPassphraseRequired: SuggestionIntegrityProviderNewPassphrase,
 
@@ -332,6 +347,7 @@ var errorToSuggestion = map[error]string{
 	ErrTokenReaderPathRequired:  SuggestionTokenReaderPath,
 	ErrTokenReaderFlagRequired:  SuggestionTokenReaderFlag,
 
+	ErrShamirIsEnabledTrueRequired:   SuggestionShamirIsEnabledTrueRequired,
 	ErrShamirSharesEqual0:            SuggestionShamirSharesEqual0,
 	ErrShamirThresholdEqual0:         SuggestionShamirThresholdEqual0,
 	ErrShamirSharesLessThanThreshold: SuggestionShamirSharesLessThanThreshold,
@@ -347,6 +363,9 @@ var errorToCode = map[error]ErrorCode{
 	ErrContainerFolderPathRequired:  ErrCodeContainerFolderPathRequired,
 	ErrContainerPassphraseRequired:  ErrCodeContainerPassphraseRequired,
 
+	ErrTokenTypeInvalid: ErrCodeTokenTypeInvalid,
+
+	ErrIntegrityProviderTypeNotNone:           ErrCodeIntegrityProviderTypeNotNone,
 	ErrIntegrityProviderTypeInvalid:           ErrCodeIntegrityProviderTypeInvalid,
 	ErrIntegrityProviderNewPassphraseRequired: ErrCodeIntegrityProviderNewPassphraseRequired,
 
@@ -365,6 +384,7 @@ var errorToCode = map[error]ErrorCode{
 	ErrTokenReaderPathRequired:  ErrCodeTokenReaderPathRequired,
 	ErrTokenReaderFlagRequired:  ErrCodeTokenReaderFlagRequired,
 
+	ErrShamirIsEnabledTrueRequired:   ErrCodeShamirIsEnabledTrueRequired,
 	ErrShamirSharesEqual0:            ErrCodeShamirSharesEqualZero,
 	ErrShamirThresholdEqual0:         ErrCodeShamirThresholdEqualZero,
 	ErrShamirSharesLessThanThreshold: ErrCodeShamirSharesLessThanThreshold,
@@ -546,16 +566,17 @@ func unwrap(err error) []string {
 
 	unwrappedErrorList[err] = struct{}{}
 
-	seen := make(map[string]struct{})
-	var result []string
-
-	msgs := strings.Split(err.Error(), ":")
-	for _, msg := range msgs {
-		msg = strings.TrimSpace(msg)
-		if msg != "" {
-			if _, ok := seen[msg]; !ok {
-				seen[msg] = struct{}{}
-				result = append(result, msg)
+	var (
+		seen      = make(map[string]struct{})
+		result    []string
+		errorList = strings.Split(err.Error(), ":")
+	)
+	for _, unErr := range errorList {
+		unErr = strings.TrimSpace(unErr)
+		if unErr != "" {
+			if _, ok := seen[unErr]; !ok {
+				seen[unErr] = struct{}{}
+				result = append(result, unErr)
 			}
 		}
 	}

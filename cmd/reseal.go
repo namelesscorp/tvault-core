@@ -123,6 +123,7 @@ func processResealContainer(options *lib.Container, args []string) error {
 	options.CurrentPath = flagSet.String("current-path", "", "current path to container file")
 	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for reseal")
+	options.Passphrase = flagSet.String("passphrase", "", "passphrase to reseal container file")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)

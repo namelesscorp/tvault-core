@@ -15,7 +15,7 @@ import (
 const (
 	defaultProfileDir    = "./debug/profiles"
 	timeFormat           = "20060102_150405"
-	cpuProfileRate       = 100000
+	cpuProfileRate       = 10000
 	blockProfileRate     = 1
 	mutexProfileFraction = 1
 )

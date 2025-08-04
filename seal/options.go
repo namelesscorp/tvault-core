@@ -4,10 +4,12 @@ import (
 	"github.com/namelesscorp/tvault-core/compression"
 	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/lib"
+	"github.com/namelesscorp/tvault-core/token"
 )
 
 type Options struct {
 	Container         *lib.Container
+	Token             *lib.Token
 	Compression       *lib.Compression
 	IntegrityProvider *lib.IntegrityProvider
 	Shamir            *lib.Shamir
@@ -17,6 +19,10 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	if err := o.validateContainer(); err != nil {
+		return err
+	}
+
+	if err := o.ValidateToken(); err != nil {
 		return err
 	}
 
@@ -37,6 +43,14 @@ func (o *Options) Validate() error {
 	}
 
 	return o.validateLogWriter()
+}
+
+func (o *Options) ValidateToken() error {
+	if _, ok := token.Types[*o.Token.Type]; !ok {
+		return lib.ValidationErr(lib.CategorySeal, lib.ErrTokenTypeInvalid)
+	}
+
+	return nil
 }
 
 func (o *Options) validateContainer() error {
@@ -64,6 +78,10 @@ func (o *Options) validateIntegrity() error {
 		return lib.ValidationErr(lib.CategorySeal, lib.ErrIntegrityProviderTypeInvalid)
 	}
 
+	if *o.Token.Type == token.TypeNameNone && *o.IntegrityProvider.Type != integrity.TypeNameNone {
+		return lib.ValidationErr(lib.CategorySeal, lib.ErrIntegrityProviderTypeNotNone)
+	}
+
 	if *o.IntegrityProvider.Type == integrity.TypeNameHMAC && *o.IntegrityProvider.NewPassphrase == "" {
 		return lib.ValidationErr(lib.CategorySeal, lib.ErrIntegrityProviderNewPassphraseRequired)
 	}
@@ -72,6 +90,10 @@ func (o *Options) validateIntegrity() error {
 }
 
 func (o *Options) validateShamir() error {
+	if token.TypeNameShare == *o.Token.Type && !*o.Shamir.IsEnabled {
+		return lib.ValidationErr(lib.CategorySeal, lib.ErrShamirIsEnabledTrueRequired)
+	}
+
 	if !*o.Shamir.IsEnabled {
 		return nil
 	}

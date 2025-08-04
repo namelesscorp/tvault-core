@@ -36,4 +36,8 @@ type (
 		FolderPath  *string
 		Passphrase  *string
 	}
+
+	Token struct {
+		Type *string
+	}
 )

@@ -37,6 +37,8 @@ func Seal(options Options) error {
 		data,
 		[]byte(*options.Container.Passphrase),
 		compID,
+		integrity.ConvertNameToID(*options.IntegrityProvider.Type),
+		token.ConvertNameToID(*options.Token.Type),
 		*options.Container.NewPath,
 		options.Shamir,
 	)
@@ -48,6 +50,10 @@ func Seal(options Options) error {
 			"",
 			err,
 		)
+	}
+
+	if *options.Token.Type == token.TypeNameNone {
+		return nil
 	}
 
 	integrityProvider, err := CreateIntegrityProviderWithNewPassphrase(options.IntegrityProvider)
@@ -110,11 +116,17 @@ func CompressFolder(compressionType, folderPath string) ([]byte, byte, error) {
 
 func CreateContainer(
 	data, passphrase []byte,
-	compressionID byte,
+	compressionID, integrityProviderID, tokenID byte,
 	containerPath string,
 	shamir *lib.Shamir,
 ) ([]byte, []byte, error) {
-	header, err := container.NewHeader(compressionID, uint8(*shamir.Shares), uint8(*shamir.Threshold))
+	header, err := container.NewHeader(
+		compressionID,
+		integrityProviderID,
+		tokenID,
+		uint8(*shamir.Shares),
+		uint8(*shamir.Threshold),
+	)
 	if err != nil {
 		return nil, nil, lib.CryptoErr(
 			lib.CategorySeal,
@@ -218,7 +230,6 @@ func GenerateAndSaveTokens(
 		integrityProviderPassphrase,
 		masterKey,
 		*options.TokenWriter.Format,
-		integrityProvider.ID(),
 		tokenWriter,
 	)
 }
@@ -301,12 +312,10 @@ func SaveShareTokens(
 func buildShareToken(share *shamir.Share, additionalPassword []byte) ([]byte, error) {
 	shareToken, err := token.Build(
 		token.Token{
-			Version:    token.Version,
-			ID:         int(share.ID),
-			Type:       int(token.TypeShare),
-			Value:      hex.EncodeToString(share.Value),
-			Signature:  hex.EncodeToString(share.Signature),
-			ProviderID: int(share.ProviderID),
+			Version:   token.Version,
+			ID:        int(share.ID),
+			Value:     hex.EncodeToString(share.Value),
+			Signature: hex.EncodeToString(share.Signature),
 		},
 		additionalPassword,
 	)
@@ -326,10 +335,9 @@ func buildShareToken(share *shamir.Share, additionalPassword []byte) ([]byte, er
 func SaveMasterToken(
 	additionalPassword, masterKey []byte,
 	writerFormat string,
-	integrityProviderID byte,
 	w io.Writer,
 ) error {
-	encodedToken, err := buildMasterToken(additionalPassword, masterKey, integrityProviderID)
+	encodedToken, err := buildMasterToken(additionalPassword, masterKey)
 	if err != nil {
 		return err
 	}
@@ -357,13 +365,11 @@ func SaveMasterToken(
 	return nil
 }
 
-func buildMasterToken(pwd, masterKey []byte, integrityProviderID byte) (string, error) {
+func buildMasterToken(pwd, masterKey []byte) (string, error) {
 	raw, err := token.Build(
 		token.Token{
-			Version:    token.Version,
-			Type:       int(token.TypeMaster),
-			Value:      hex.EncodeToString(masterKey),
-			ProviderID: int(integrityProviderID),
+			Version: token.Version,
+			Value:   hex.EncodeToString(masterKey),
 		},
 		pwd,
 	)

@@ -13,22 +13,28 @@ const (
 	// Version - defines the current version number as an integer.
 	Version = 1
 
-	// TypeShare - represents a byte constant for the share type.
-	TypeShare byte = 0x01
-
-	// TypeMaster - represents a byte constant for the master type.
+	TypeNone   byte = 0x00
+	TypeShare  byte = 0x01
 	TypeMaster byte = 0x02
+
+	TypeNameNone   string = "none"
+	TypeNameShare  string = "share"
+	TypeNameMaster string = "master"
 )
 
-// Token - represents a data structure for handling token information with properties like version, ID, type, and provider ID.
+var Types = map[string]struct{}{
+	TypeNameNone:   {},
+	TypeNameShare:  {},
+	TypeNameMaster: {},
+}
+
+// Token - represents a data structure for handling token information with properties like version, ID, type.
 type (
 	Token struct {
-		Version    int    `json:"v"`
-		ID         int    `json:"id,omitempty"`
-		Type       int    `json:"t"`
-		Value      string `json:"vl"`
-		Signature  string `json:"s,omitempty"`
-		ProviderID int    `json:"pid"`
+		Version   int    `json:"v"`
+		ID        int    `json:"id,omitempty"`
+		Value     string `json:"vl"`
+		Signature string `json:"s,omitempty"`
 	}
 	List struct {
 		TokenList []string `json:"token_list"`
@@ -151,4 +157,17 @@ func decodeBase64(data []byte) ([]byte, error) {
 	}
 
 	return decoded, nil
+}
+
+func ConvertNameToID(name string) byte {
+	switch name {
+	case TypeNameNone:
+		return TypeNone
+	case TypeNameShare:
+		return TypeShare
+	case TypeNameMaster:
+		return TypeMaster
+	default:
+		return TypeNone
+	}
 }
