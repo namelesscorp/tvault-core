@@ -16,6 +16,7 @@ Tokens are used to store and transmit metadata about secret shares and pass keys
 
 The package defines the following token types:
 
+- `TypeNone` (0x00) — token will not be created (use just passphrase)
 - `TypeShare` (0x01) — token with a secret share
 - `TypeMaster` (0x02) — token with a pass key (master key)
 

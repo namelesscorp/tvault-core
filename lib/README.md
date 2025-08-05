@@ -2,8 +2,8 @@
 
 ## Description
 
-The `lib` package contains core cryptographic utilities and shared functionality used across the tvault-core project. 
-It provides essential cryptographic primitives that serve as building blocks for the secure storage and retrieval of sensitive data.
+The `lib` package contains core utilities and common components used throughout the tvault-core project.
+This package serves as a foundation for building secure and reliable applications for storing and processing sensitive data.
 
 ## Key Features
 
@@ -34,3 +34,25 @@ The package implements PBKDF2 (Password-Based Key Derivation Function 2) accordi
 
 The PBKDF2 implementation is designed to be computationally intensive (by using a high iteration count) to resist brute-force attacks. 
 This intentional design choice means key derivation operations will take a noticeable amount of time, which is a security feature rather than a performance issue.
+
+### Error Handling (error.go, error_format.go)
+
+- Unified mechanism for handling and formatting errors
+- Structured error output with categories, codes, and detailed messages
+- Support for various output formats (plaintext, JSON)
+
+### I/O Systems (reader.go, writer.go)
+
+- Various types of readers and writers (files, standard input/output)
+- Support for different data formats (plaintext, JSON)
+- Simple abstraction for working with files and streams
+
+### Helper Functions (helpers.go)
+
+- Set of common utilities and auxiliary functions
+- Common methods for working with data and structures
+
+### Options and Configuration (options.go)
+
+- Customizable parameters for the package's core components
+- Flexible options for adapting functionality to specific tasks

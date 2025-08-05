@@ -6,18 +6,20 @@ package container
 // +--------+-------+-------------------------------------------+
 // | Offset | Size  | Field									    |
 // +--------+-------+-------------------------------------------+
-// | 0x00   | 4	  | "TVLT" signature					        |
+// | 0x00   | 4	  | "TVLT" signature						    |
 // | 0x04   | 1	  | version								        |
-// | 0x05   | 1	  | flags (reserved)			     	        |
+// | 0x05   | 1	  | flags (reserved)						    |
 // | 0x06   | 16  | salt (PBKDF2)						        |
 // | 0x16   | 4	  | iterations (PBKDF2)					        |
-// | 0x1A   | 1	  | compression type				            |
-// | 0x1B   | 12  | nonce (AES‑GCM)					            |
-// | 0x27   | 4   | metadata length						        |
-// | 0x2B   | 1	  | shares								        |
-// | 0x2C   | 1	  | threshold								    |
-// | 0x2D   | N	  | metadata JSON (plaintext)				    |
-// | 0x2D+N | ... | ciphertext + 16‑byte GCM tag			    |
+// | 0x1A   | 1	  | compression type					     	|
+// | 0x1B   | 1	  | provider type						     	|
+// | 0x1C   | 1	  | token type							        |
+// | 0x1D   | 12  | nonce (AES-GCM)						        |
+// | 0x29   | 4	  | metadata length						        |
+// | 0x2D   | 1	  | shares								        |
+// | 0x2E   | 1	  | threshold							        |
+// | 0x2F   | N	  | metadata JSON (plaintext)			        |
+// | 0x2F+N | ... | ciphertext + 16-byte GCM tag		        |
 // +--------+-------+-------------------------------------------+
 //
 
