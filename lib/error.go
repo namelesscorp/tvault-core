@@ -205,7 +205,7 @@ const (
 
 	ErrMessageUnsealOpenContainerError        = "open container error"
 	ErrMessageUnsealGetTokenStringError       = "get token string error"
-	ErrMessageUnsealParseTokensError          = "parse tokens error"
+	ErrMessageUnsealParseTokensError          = "parse tokens error" // #nosec G101
 	ErrMessageUnsealRestoreMasterKeyError     = "restore master key error"
 	ErrMessageUnsealContainerError            = "unseal container error"
 	ErrMessageUnsealUnpackContentError        = "unpack content error"
@@ -213,7 +213,7 @@ const (
 	ErrMessageUnsealReadAllError              = "read all error"
 	ErrMessageUnsealInvalidTokenFormatError   = "invalid token format"
 	ErrMessageUnsealUnmarshalTokenListError   = "unmarshal token list error"
-	ErrMessageUnsealParseTokenError           = "parse token error"
+	ErrMessageUnsealParseTokenError           = "parse token error" // #nosec G101
 	ErrMessageUnsealDecodeMasterKeyError      = "decode master key error"
 	ErrMessageUnsealDecodeShareValueError     = "decode share value error"
 	ErrMessageUnsealDecodeShareSignatureError = "decode share signature error"
@@ -229,14 +229,14 @@ const (
 	ErrMessageSealEncryptContainerError                  = "encrypt container error"
 	ErrMessageSealWriteContainerError                    = "write container error"
 	ErrMessageSealShamirSplitError                       = "shamir split error"
-	ErrMessageSealWriteTokensShareError                  = "write tokens (share) error"
-	ErrMessageSealBuildShareTokenError                   = "build token (share) error"
-	ErrMessageSealWriteTokenMasterError                  = "write token (master) error"
-	ErrMessageSealBuildMasterTokenError                  = "build token (master) error"
+	ErrMessageSealWriteTokensShareError                  = "write tokens (share) error" // #nosec G101
+	ErrMessageSealBuildShareTokenError                   = "build token (share) error"  // #nosec G101
+	ErrMessageSealWriteTokenMasterError                  = "write token (master) error" // #nosec G101
+	ErrMessageSealBuildMasterTokenError                  = "build token (master) error" // #nosec G101
 
 	ErrMessageResealOpenContainerError            = "open container error"
 	ErrMessageResealGetTokenStringError           = "get token string error"
-	ErrMessageResealParseTokensError              = "parse tokens error"
+	ErrMessageResealParseTokensError              = "parse tokens error" // #nosec G101
 	ErrMessageResealRestoreMasterKeyError         = "restore master key error"
 	ErrMessageResealCompressFolderError           = "compress folder error"
 	ErrMessageResealEncryptContainerError         = "encrypt container error"

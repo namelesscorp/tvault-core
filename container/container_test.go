@@ -2,197 +2,121 @@ package container
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/binary"
-	"errors"
 	"os"
 	"testing"
 	"time"
 )
 
-func TestContainerCreate(t *testing.T) {
-	tests := []struct {
-		name         string
-		data         []byte
-		key          []byte
-		compression  byte
-		path         string
-		expectedErr  error
-		expectOutput bool
-	}{
-		{
-			name:         "valid_data_and_key",
-			data:         []byte("test data"),
-			key:          make([]byte, 32),
-			compression:  0,
-			path:         "./test/vault.tvlt",
-			expectedErr:  nil,
-			expectOutput: true,
-		},
-	}
+func TestContainer(t *testing.T) {
+	t.Run("create container", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "container_test_*.tvlt")
+		if err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+		defer func(name string) {
+			_ = os.Remove(name)
+		}(tempFile.Name())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, _ = rand.Read(tt.key)
-			c := NewContainer(tt.path, Metadata{})
+		_ = tempFile.Close()
 
-			masterKey, err := c.Create(tt.data, tt.key, tt.compression)
-			if (err != nil) != (tt.expectedErr != nil) {
-				t.Errorf("Create() = expected error: %v, got: %v", tt.expectedErr, err)
-			}
+		testData := []byte("test data for encryption")
+		passphrase := []byte("test passphrase")
 
-			if (masterKey != nil) != tt.expectOutput {
-				t.Errorf("unexpected masterKey value")
-			}
-		})
-	}
-}
+		now := time.Now()
+		metadata := Metadata{
+			CreatedAt: now,
+			UpdatedAt: now,
+			Comment:   "Test comment",
+		}
 
-func TestContainerOpen(t *testing.T) {
-	validPath := "/test/vault.tvlt"
-	defer func(name string) {
-		_ = os.Remove(name)
-	}(validPath)
+		header, err := NewHeader(1, 1, 1, 3, 2)
+		if err != nil {
+			t.Fatalf("Failed to create header: %v", err)
+		}
 
-	content := []byte("test content")
-	metadata := Metadata{
-		CreatedAt: time.Now(),
-		Comment:   "test metadata",
-	}
-	header := Header{
-		Signature:    [4]byte{'t', 'v', 'c', 't'},
-		Version:      1,
-		MetadataSize: uint32(len(content)),
-	}
-	file, _ := os.Create(validPath)
-	defer func(file *os.File) {
-		_ = file.Close()
-	}(file)
+		cont := NewContainer(tempFile.Name(), nil, metadata, header)
 
-	err := binary.Write(file, binary.LittleEndian, header)
-	if err != nil {
-		return
-	}
+		if cont.GetHeader().Version != Version {
+			t.Errorf("Expected Version to be %d, got %d", Version, cont.GetHeader().Version)
+		}
 
-	_, err = file.Write(content)
-	if err != nil {
-		return
-	}
+		if !cont.GetMetadata().CreatedAt.Equal(now) {
+			t.Errorf("Expected CreatedAt to be %v, got %v", now, cont.GetMetadata().CreatedAt)
+		}
 
-	tests := []struct {
-		name        string
-		path        string
-		expectedErr error
-	}{
-		{
-			name:        "valid_container_file",
-			path:        validPath,
-			expectedErr: nil,
-		},
-		{
-			name:        "invalid_path",
-			path:        "nonexistent_container",
-			expectedErr: errors.New("open"),
-		},
-	}
+		if cont.GetMetadata().Comment != "Test comment" {
+			t.Errorf("Expected Comment to be %s, got %s", "Test comment", cont.GetMetadata().Comment)
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := NewContainer(tt.path, metadata).(*container)
-			err := c.Open()
-			if (err != nil) != (tt.expectedErr != nil) {
-				t.Errorf("expected error: %v, got: %v", tt.expectedErr, err)
-			}
-		})
-	}
-}
+		err = cont.Encrypt(testData, passphrase)
+		if err != nil {
+			t.Fatalf("Failed to encrypt data: %v", err)
+		}
 
-func TestContainer_Decrypt(t *testing.T) {
-	key := make([]byte, 32)
-	_, _ = rand.Read(key)
-	block, _ := aes.NewCipher(key)
-	aesGcm, _ := cipher.NewGCM(block)
+		if len(cont.GetCipherData()) == 0 {
+			t.Errorf("Expected cipherData to be non-empty")
+		}
 
-	nonce := make([]byte, aesGcm.NonceSize())
-	_, _ = rand.Read(nonce)
+		err = cont.Write()
+		if err != nil {
+			t.Fatalf("Failed to write container: %v", err)
+		}
 
-	plaintext := []byte("test data")
-	ciphertext := aesGcm.Seal(nil, nonce, plaintext, nil)
+		readContainer := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
 
-	c := &container{
-		header: Header{
-			Nonce: [12]byte{},
-		},
-		cipherData: ciphertext,
-	}
+		err = readContainer.Read()
+		if err != nil {
+			t.Fatalf("Failed to read container: %v", err)
+		}
 
-	copy(c.header.Nonce[:], nonce)
+		if readContainer.GetHeader().Version != Version {
+			t.Errorf("Expected Version to be %d, got %d", Version, readContainer.GetHeader().Version)
+		}
 
-	tests := []struct {
-		name        string
-		key         []byte
-		expectedErr error
-		expectedOut []byte
-	}{
-		{
-			name:        "valid key",
-			key:         key,
-			expectedErr: nil,
-			expectedOut: plaintext,
-		},
-		{
-			name:        "invalid key",
-			key:         make([]byte, 32),
-			expectedErr: errors.New("open cipher text error"),
-		},
-	}
+		if !readContainer.GetMetadata().CreatedAt.Equal(now) {
+			t.Errorf("Expected CreatedAt to be %v, got %v", now, readContainer.GetMetadata().CreatedAt)
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			data, err := c.Decrypt(tt.key)
-			if (err != nil) != (tt.expectedErr != nil) {
-				t.Errorf("expected error: %v, got: %v", tt.expectedErr, err)
-			}
-			if !bytes.Equal(data, tt.expectedOut) {
-				t.Errorf("expected output: %v, got: %v", tt.expectedOut, data)
-			}
-		})
-	}
-}
+		if readContainer.GetMetadata().Comment != "Test comment" {
+			t.Errorf("Expected Comment to be %s, got %s", "Test comment", readContainer.GetMetadata().Comment)
+		}
 
-func TestContainerGetters(t *testing.T) {
-	cipherData := []byte{1, 2, 3, 4}
-	header := Header{
-		Signature: [4]byte{'t', 'v', 'c', 't'},
-		Version:   1,
-	}
-	metadata := Metadata{
-		CreatedAt: time.Now(),
-		Comment:   "test metadata",
-	}
-	c := &container{
-		cipherData: cipherData,
-		header:     header,
-		metadata:   metadata,
-	}
+		err = readContainer.Decrypt(cont.GetMasterKey())
+		if err != nil {
+			t.Fatalf("Failed to decrypt data: %v", err)
+		}
 
-	t.Run("get_cipher_data", func(t *testing.T) {
-		if !bytes.Equal(c.GetCipherData(), cipherData) {
-			t.Error("GetCipherData did not return expected data")
+		if !bytes.Equal(readContainer.GetData(), testData) {
+			t.Errorf("Expected decrypted data to be %v, got %v", testData, readContainer.GetData())
 		}
 	})
 
-	t.Run("get_header", func(t *testing.T) {
-		if c.GetHeader() != header {
-			t.Error("GetHeader did not return expected header")
-		}
-	})
+	t.Run("setter methods", func(t *testing.T) {
+		cont := NewContainer("", nil, Metadata{}, Header{})
 
-	t.Run("get_metadata", func(t *testing.T) {
-		if c.GetMetadata() != metadata {
-			t.Error("GetMetadata did not return expected metadata")
+		path := "/tmp/test.tvlt"
+		cont.SetPath(path)
+
+		key := []byte("test key")
+		cont.SetMasterKey(key)
+		if !bytes.Equal(cont.GetMasterKey(), key) {
+			t.Errorf("Expected master key to be %v, got %v", key, cont.GetMasterKey())
+		}
+
+		now := time.Now()
+		metadata := Metadata{
+			CreatedAt: now,
+			UpdatedAt: now,
+			Comment:   "New comment",
+		}
+
+		cont.SetMetadata(metadata)
+		if !cont.GetMetadata().CreatedAt.Equal(now) {
+			t.Errorf("Expected CreatedAt to be %v, got %v", now, cont.GetMetadata().CreatedAt)
+		}
+
+		if cont.GetMetadata().Comment != "New comment" {
+			t.Errorf("Expected Comment to be %s, got %s", "New comment", cont.GetMetadata().Comment)
 		}
 	})
 }

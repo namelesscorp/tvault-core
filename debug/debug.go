@@ -59,7 +59,8 @@ func (d *Debug) Start() error {
 
 	runtime.SetCPUProfileRate(cpuProfileRate)
 
-	if err := os.MkdirAll(d.profileDir, 0755); err != nil {
+	err := os.MkdirAll(d.profileDir, 0755) // #nosec G301
+	if err != nil {
 		return err
 	}
 
@@ -81,7 +82,7 @@ func (d *Debug) Start() error {
 }
 
 func (d *Debug) SetupSignalHandler() {
-	signal.Notify(d.signalChan, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
+	signal.Notify(d.signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 	go func() {
 		<-d.signalChan
 
@@ -95,7 +96,7 @@ func (d *Debug) startCPUProfiling(timestamp string) error {
 	cpuProfPath := fmt.Sprintf("%s/%s_%s.prof", d.profileDir, ProfileCPU, timestamp)
 
 	var err error
-	d.cpuFile, err = os.Create(cpuProfPath)
+	d.cpuFile, err = os.Create(cpuProfPath) // #nosec G304
 	if err != nil {
 		return fmt.Errorf("create cpu profile file error; %w", err)
 	}
@@ -127,7 +128,7 @@ func (d *Debug) startTraceProfiling(timestamp string) error {
 		traceProfPath = fmt.Sprintf("%s/%s_%s.out", d.profileDir, ProfileTrace, timestamp)
 		err           error
 	)
-	d.traceFile, err = os.Create(traceProfPath)
+	d.traceFile, err = os.Create(traceProfPath) // #nosec G304
 	if err != nil {
 		return fmt.Errorf("create trace profile file error; %w", err)
 	}
@@ -201,7 +202,7 @@ func (d *Debug) stopTraceProfiling() {
 
 func (d *Debug) saveProfile(profileType ProfileType, timestamp string) {
 	var profPath = fmt.Sprintf("%s/%s_%s.prof", d.profileDir, profileType, timestamp)
-	profFile, err := os.Create(profPath)
+	profFile, err := os.Create(profPath) // #nosec G304
 	if err != nil {
 		log.Printf("create profile file error; %v", err)
 		return

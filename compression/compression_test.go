@@ -5,8 +5,7 @@ import (
 )
 
 func TestNewNoneCompression(t *testing.T) {
-	compression := NewNoneCompression()
-
+	var compression = NewNoneCompression()
 	if compression == nil {
 		t.Error("Expected non-nil compression, got nil")
 	}
@@ -19,7 +18,6 @@ func TestNewNoneCompression(t *testing.T) {
 func TestNoneCompressionPanic(t *testing.T) {
 	compression := NewNoneCompression()
 
-	// Test that Pack panics
 	t.Run("pack panics", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
@@ -30,7 +28,6 @@ func TestNoneCompressionPanic(t *testing.T) {
 		_, _ = compression.Pack("")
 	})
 
-	// Test that Unpack panics
 	t.Run("unpack panics", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
@@ -76,12 +73,10 @@ func TestConvertIDToName(t *testing.T) {
 }
 
 func TestTypes(t *testing.T) {
-	// Verify that TypeNameZip is in the Types map
 	if _, ok := Types[TypeNameZip]; !ok {
 		t.Errorf("Expected %q to be in Types map", TypeNameZip)
 	}
 
-	// Verify that TypeNameNone is not in the Types map
 	if _, ok := Types[TypeNameNone]; ok {
 		t.Errorf("Expected %q not to be in Types map", TypeNameNone)
 	}

@@ -8,7 +8,7 @@ import (
 
 func TestBuild(t *testing.T) {
 	validKey := make([]byte, aes.BlockSize)
-	validToken := Token{Version: 1, ID: 123, Type: 2, Value: "example", ProviderID: 45}
+	validToken := Token{Version: 1, ID: 123, Value: "example"}
 
 	tests := []struct {
 		name          string
@@ -21,14 +21,14 @@ func TestBuild(t *testing.T) {
 			name:          "valid_token_no_key",
 			token:         validToken,
 			key:           nil,
-			expectedToken: base64.StdEncoding.EncodeToString([]byte(`{"v":1,"id":123,"t":2,"vl":"example","pid":45}`)),
+			expectedToken: base64.StdEncoding.EncodeToString([]byte(`{"v":1,"id":123,"vl":"example"}`)),
 			expectedErr:   false,
 		},
 		{
 			name:          "valid_token_valid_key",
 			token:         validToken,
 			key:           validKey,
-			expectedToken: "Hcs99tW7ABnhKNhj+wYYAnqW3vTIUhIXWl0ndcGfJDdz5L/sTJTT+5cK+I1Ezw==",
+			expectedToken: "Hcs99tW7ABnhKNhj+wYYAnqUkOzAXFUZVxJtO8HFOA==",
 			expectedErr:   false,
 		},
 		{
@@ -57,7 +57,7 @@ func TestBuild(t *testing.T) {
 
 func TestParse(t *testing.T) {
 	validKey := make([]byte, aes.BlockSize)
-	validToken := Token{Version: 1, ID: 123, Type: 2, Value: "example", ProviderID: 45}
+	validToken := Token{Version: 1, ID: 123, Value: "example"}
 	encrypted, _ := Build(validToken, validKey)
 	base64Encrypted := base64.StdEncoding.EncodeToString(encrypted)
 
@@ -128,7 +128,7 @@ func TestParse(t *testing.T) {
 
 func TestBuildAndParseIntegration(t *testing.T) {
 	validKey := make([]byte, aes.BlockSize)
-	validToken := Token{Version: 1, ID: 123, Type: 2, Value: "example", ProviderID: 45}
+	validToken := Token{Version: 1, ID: 123, Value: "example"}
 
 	encrypted, err := Build(validToken, validKey)
 	if err != nil {

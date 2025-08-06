@@ -21,7 +21,7 @@ func handleReseal(args []string) (*lib.Writer, error) {
 	}
 
 	var (
-		usedSubcommands = make(map[string]bool)
+		usedSubcommands map[string]bool
 		err             error
 	)
 	if usedSubcommands, err = parseResealSubcommands(args, &options); err != nil {

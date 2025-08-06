@@ -3,50 +3,82 @@ package container
 import (
 	"bytes"
 	"testing"
-
-	"github.com/namelesscorp/tvault-core/compression"
-	"github.com/namelesscorp/tvault-core/lib"
 )
 
-func TestNewHeader(t *testing.T) {
-	t.Run("init new header", func(t *testing.T) {
-		header, err := NewHeader(compression.TypeZip)
+func TestHeader(t *testing.T) {
+	t.Run("create header", func(t *testing.T) {
+		var (
+			compressionType = byte(1)
+			providerType    = byte(2)
+			tokenType       = byte(3)
+			shares          = uint8(5)
+			threshold       = uint8(3)
+		)
+
+		header, err := NewHeader(compressionType, providerType, tokenType, shares, threshold)
 		if err != nil {
-			t.Fatalf("NewHeader() error: %v", err)
+			t.Fatalf("Failed to create header: %v", err)
 		}
 
-		if !bytes.Equal(header.Signature[:], []byte(signature)) {
-			t.Errorf("Expected Signature: %s, got: %s", signature, header.Signature)
+		expectedSignature := [4]byte{'T', 'V', 'L', 'T'}
+		if header.Signature != expectedSignature {
+			t.Errorf("Expected Signature to be %v, got %v", expectedSignature, header.Signature)
 		}
 
 		if header.Version != Version {
-			t.Errorf("Expected Version: %d, got: %d", Version, header.Version)
+			t.Errorf("Expected Version to be %d, got %d", Version, header.Version)
 		}
 
-		if header.Iterations != lib.Iterations {
-			t.Errorf("Expected Iterations: %d, got: %d", lib.Iterations, header.Iterations)
+		if header.CompressionType != compressionType {
+			t.Errorf("Expected CompressionType to be %d, got %d", compressionType, header.CompressionType)
 		}
 
-		if header.CompressionType != compression.TypeZip {
-			t.Errorf("Expected compression type: %d, got: %d", compression.TypeZip, header.CompressionType)
+		if header.ProviderType != providerType {
+			t.Errorf("Expected ProviderType to be %d, got %d", providerType, header.ProviderType)
 		}
 
-		if isAllZeros(header.Salt[:]) {
-			t.Error("Salt was not properly initialized")
+		if header.TokenType != tokenType {
+			t.Errorf("Expected TokenType to be %d, got %d", tokenType, header.TokenType)
 		}
 
-		if isAllZeros(header.Nonce[:]) {
-			t.Error("Nonce was not properly initialized")
+		if header.Shares != shares {
+			t.Errorf("Expected Shares to be %d, got %d", shares, header.Shares)
+		}
+
+		if header.Threshold != threshold {
+			t.Errorf("Expected Threshold to be %d, got %d", threshold, header.Threshold)
+		}
+
+		if bytes.Equal(header.Salt[:], make([]byte, 16)) {
+			t.Errorf("Expected Salt to be non-zero, got all zeros")
+		}
+
+		if bytes.Equal(header.Nonce[:], make([]byte, 12)) {
+			t.Errorf("Expected Nonce to be non-zero, got all zeros")
 		}
 	})
-}
 
-func isAllZeros(data []byte) bool {
-	for _, v := range data {
-		if v != 0 {
-			return false
+	t.Run("default values", func(t *testing.T) {
+		header, err := NewHeader(0, 0, 0, 0, 0)
+		if err != nil {
+			t.Fatalf("Failed to create header: %v", err)
 		}
-	}
 
-	return true
+		expectedSignature := [4]byte{'T', 'V', 'L', 'T'}
+		if header.Signature != expectedSignature {
+			t.Errorf("Expected Signature to be %v, got %v", expectedSignature, header.Signature)
+		}
+
+		if header.Version != Version {
+			t.Errorf("Expected Version to be %d, got %d", Version, header.Version)
+		}
+
+		if bytes.Equal(header.Salt[:], make([]byte, 16)) {
+			t.Errorf("Expected Salt to be non-zero, got all zeros")
+		}
+
+		if bytes.Equal(header.Nonce[:], make([]byte, 12)) {
+			t.Errorf("Expected Nonce to be non-zero, got all zeros")
+		}
+	})
 }

@@ -20,7 +20,6 @@ import (
 
 // Seal - creates a secure container by compressing a folder, encrypting the data, and saving cryptographic tokens.
 func Seal(options Options) error {
-	// compressing folder and getting data, compression
 	data, compID, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
 	if err != nil {
 		return lib.InternalErr(
@@ -32,7 +31,6 @@ func Seal(options Options) error {
 		)
 	}
 
-	// create container and get master key and container salt
 	masterKey, containerSalt, err := CreateContainer(
 		data,
 		[]byte(*options.Container.Passphrase),
@@ -124,8 +122,8 @@ func CreateContainer(
 		compressionID,
 		integrityProviderID,
 		tokenID,
-		uint8(*shamir.Shares),
-		uint8(*shamir.Threshold),
+		uint8(*shamir.Shares),    // #nosec G115
+		uint8(*shamir.Threshold), // #nosec G115
 	)
 	if err != nil {
 		return nil, nil, lib.CryptoErr(

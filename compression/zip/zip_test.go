@@ -2,7 +2,6 @@ package zip
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,53 +10,45 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	z := New()
-
-	if z == nil {
-		t.Error("Expected non-nil zip compression, got nil")
-	}
-
+	var z = New()
 	if z.ID() != compression.TypeZip {
 		t.Errorf("Expected compression ID to be %d, got %d", compression.TypeZip, z.ID())
 	}
 }
 
 func TestZipID(t *testing.T) {
-	z := &zip{}
-
+	var z = &zip{}
 	if z.ID() != compression.TypeZip {
 		t.Errorf("Expected compression ID to be %d, got %d", compression.TypeZip, z.ID())
 	}
 }
 
 func TestZipPackUnpack(t *testing.T) {
-	// Create a temporary directory for testing
-	tempDir, err := ioutil.TempDir("", "zip_test")
+	tempDir, err := os.MkdirTemp("", "zip_test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func(path string) {
+		_ = os.RemoveAll(path)
+	}(tempDir)
 
-	// Create a test file in the temp directory
 	testContent := []byte("test content")
 	testFilePath := filepath.Join(tempDir, "test.txt")
-	if err := ioutil.WriteFile(testFilePath, testContent, 0644); err != nil {
+	if err = os.WriteFile(testFilePath, testContent, 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
-	// Create a subdirectory with a file
 	subDir := filepath.Join(tempDir, "subdir")
-	if err := os.MkdirAll(subDir, 0750); err != nil {
+	if err = os.MkdirAll(subDir, 0750); err != nil {
 		t.Fatalf("Failed to create subdirectory: %v", err)
 	}
 
 	subFileContent := []byte("subdir content")
 	subFilePath := filepath.Join(subDir, "subfile.txt")
-	if err := ioutil.WriteFile(subFilePath, subFileContent, 0644); err != nil {
+	if err = os.WriteFile(subFilePath, subFileContent, 0644); err != nil {
 		t.Fatalf("Failed to write subdir file: %v", err)
 	}
 
-	// Test Pack
 	z := New()
 	packedData, err := z.Pack(tempDir)
 	if err != nil {
@@ -68,22 +59,21 @@ func TestZipPackUnpack(t *testing.T) {
 		t.Error("Expected non-empty packed data")
 	}
 
-	// Create a directory for unpacking
-	unpackDir, err := ioutil.TempDir("", "zip_unpack_test")
+	unpackDir, err := os.MkdirTemp("", "zip_unpack_test")
 	if err != nil {
 		t.Fatalf("Failed to create unpack dir: %v", err)
 	}
-	defer os.RemoveAll(unpackDir)
+	defer func(path string) {
+		_ = os.RemoveAll(path)
+	}(unpackDir)
 
-	// Test Unpack
 	err = z.Unpack(packedData, unpackDir)
 	if err != nil {
 		t.Fatalf("Unpack failed: %v", err)
 	}
 
-	// Verify the unpacked files
 	unpackedTestFile := filepath.Join(unpackDir, "test.txt")
-	unpackedContent, err := ioutil.ReadFile(unpackedTestFile)
+	unpackedContent, err := os.ReadFile(unpackedTestFile)
 	if err != nil {
 		t.Fatalf("Failed to read unpacked test file: %v", err)
 	}
@@ -92,35 +82,31 @@ func TestZipPackUnpack(t *testing.T) {
 		t.Errorf("Unpacked content doesn't match original. Expected %q, got %q", testContent, unpackedContent)
 	}
 
-	// Verify the unpacked subdir file
 	unpackedSubFile := filepath.Join(unpackDir, "subdir", "subfile.txt")
-	unpackedSubContent, err := ioutil.ReadFile(unpackedSubFile)
+	unpackedSubContent, err := os.ReadFile(unpackedSubFile)
 	if err != nil {
 		t.Fatalf("Failed to read unpacked subdir file: %v", err)
 	}
 
 	if !bytes.Equal(unpackedSubContent, subFileContent) {
-		t.Errorf("Unpacked subdir content doesn't match original. Expected %q, got %q", subFileContent, unpackedSubContent)
+		t.Errorf(
+			"Unpacked subdir content doesn't match original. Expected %q, got %q",
+			subFileContent,
+			unpackedSubContent,
+		)
 	}
 }
 
 func TestZipUnpackError(t *testing.T) {
-	z := New()
-
-	// Test with invalid zip data
-	invalidData := []byte("not a zip file")
-	err := z.Unpack(invalidData, "")
-	if err == nil {
+	var z = New()
+	if err := z.Unpack([]byte("not a zip file"), ""); err == nil {
 		t.Error("Expected error when unpacking invalid data, got nil")
 	}
 }
 
 func TestZipPackError(t *testing.T) {
-	z := New()
-
-	// Test with non-existent directory
-	_, err := z.Pack("/non/existent/directory")
-	if err == nil {
+	var z = New()
+	if _, err := z.Pack("/non/existent/directory"); err == nil {
 		t.Error("Expected error when packing non-existent directory, got nil")
 	}
 }

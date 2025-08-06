@@ -119,17 +119,14 @@ func TestConvertNameToID(t *testing.T) {
 }
 
 func TestTypes(t *testing.T) {
-	// Verify that TypeNameNone is in the Types map
 	if _, ok := Types[TypeNameNone]; !ok {
 		t.Errorf("Expected %q to be in Types map", TypeNameNone)
 	}
 
-	// Verify that TypeNameHMAC is in the Types map
 	if _, ok := Types[TypeNameHMAC]; !ok {
 		t.Errorf("Expected %q to be in Types map", TypeNameHMAC)
 	}
 
-	// Verify that TypeNameEd25519 is not in the Types map
 	if _, ok := Types[TypeNameEd25519]; ok {
 		t.Errorf("Expected %q not to be in Types map", TypeNameEd25519)
 	}

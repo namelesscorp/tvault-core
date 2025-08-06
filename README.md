@@ -1,6 +1,5 @@
 # Trust Vault Core
 
-## Table of Contents
 - [Description](#description)
 - [Key Features](#key-features)
     - [Comprehensive File and Directory Encryption](#comprehensive-file-and-directory-encryption)

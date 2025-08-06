@@ -7,7 +7,6 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
-	// Test creating a new Metadata struct
 	t.Run("create metadata", func(t *testing.T) {
 		now := time.Now()
 		comment := "Test comment"
@@ -31,9 +30,8 @@ func TestMetadata(t *testing.T) {
 		}
 	})
 
-	// Test JSON marshaling and unmarshaling
 	t.Run("json marshaling", func(t *testing.T) {
-		now := time.Now().UTC().Truncate(time.Microsecond) // Truncate to avoid precision issues
+		now := time.Now().UTC().Truncate(time.Microsecond)
 		comment := "Test comment"
 
 		metadata := Metadata{
@@ -42,34 +40,30 @@ func TestMetadata(t *testing.T) {
 			Comment:   comment,
 		}
 
-		// Marshal to JSON
 		jsonData, err := json.Marshal(metadata)
 		if err != nil {
 			t.Fatalf("Failed to marshal metadata: %v", err)
 		}
 
-		// Unmarshal back to struct
-		var unmarshaledMetadata Metadata
-		err = json.Unmarshal(jsonData, &unmarshaledMetadata)
+		var unmarshalMetadata Metadata
+		err = json.Unmarshal(jsonData, &unmarshalMetadata)
 		if err != nil {
 			t.Fatalf("Failed to unmarshal metadata: %v", err)
 		}
 
-		// Verify fields match
-		if !unmarshaledMetadata.CreatedAt.Equal(metadata.CreatedAt) {
-			t.Errorf("Expected CreatedAt to be %v, got %v", metadata.CreatedAt, unmarshaledMetadata.CreatedAt)
+		if !unmarshalMetadata.CreatedAt.Equal(metadata.CreatedAt) {
+			t.Errorf("Expected CreatedAt to be %v, got %v", metadata.CreatedAt, unmarshalMetadata.CreatedAt)
 		}
 
-		if !unmarshaledMetadata.UpdatedAt.Equal(metadata.UpdatedAt) {
-			t.Errorf("Expected UpdatedAt to be %v, got %v", metadata.UpdatedAt, unmarshaledMetadata.UpdatedAt)
+		if !unmarshalMetadata.UpdatedAt.Equal(metadata.UpdatedAt) {
+			t.Errorf("Expected UpdatedAt to be %v, got %v", metadata.UpdatedAt, unmarshalMetadata.UpdatedAt)
 		}
 
-		if unmarshaledMetadata.Comment != metadata.Comment {
-			t.Errorf("Expected Comment to be %s, got %s", metadata.Comment, unmarshaledMetadata.Comment)
+		if unmarshalMetadata.Comment != metadata.Comment {
+			t.Errorf("Expected Comment to be %s, got %s", metadata.Comment, unmarshalMetadata.Comment)
 		}
 	})
 
-	// Test zero values
 	t.Run("zero values", func(t *testing.T) {
 		metadata := Metadata{}
 
