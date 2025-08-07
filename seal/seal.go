@@ -172,9 +172,7 @@ func CreateContainer(
 }
 
 func ParseTags(tags string) []string {
-	var tagList = make([]string, 0)
-	tagList = strings.Split(tags, ",")
-
+	var tagList = strings.Split(tags, ",")
 	for i, tag := range tagList {
 		tagList[i] = strings.TrimSpace(tag)
 	}

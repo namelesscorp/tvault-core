@@ -33,8 +33,8 @@ func TestHeader(t *testing.T) {
 			t.Errorf("Expected CompressionType to be %d, got %d", compressionType, header.CompressionType)
 		}
 
-		if header.ProviderType != providerType {
-			t.Errorf("Expected ProviderType to be %d, got %d", providerType, header.ProviderType)
+		if header.IntegrityProviderType != providerType {
+			t.Errorf("Expected ProviderType to be %d, got %d", providerType, header.IntegrityProviderType)
 		}
 
 		if header.TokenType != tokenType {
