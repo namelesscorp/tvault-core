@@ -26,6 +26,8 @@ container \
   -new-path="/path/to/updated.tvlt" \
   -folder-path="/path/to/new/content" \
   -passphrase="your-passphrase" \
+  -comment="new-comment" \
+  -tags="new-tag-1,new-tag-2,new-tag-3" \
 token-reader \
   -type="file" \
   -format="json" \
@@ -46,12 +48,14 @@ log-writer \
 
 ### Container Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| CurrentPath | Path to the original encrypted container | - | Yes |
-| NewPath | Path to save the updated container (defaults to CurrentPath) | CurrentPath | No |
-| FolderPath | Path to the folder with new content | - | Yes |
-| Passphrase | Passphrase for containers without tokens | - | Yes (for containers without tokens) |
+| Option      | Description                                                  | Default     | Required                            |
+|-------------|--------------------------------------------------------------|-------------|-------------------------------------|
+| CurrentPath | Path to the original encrypted container                     | -           | Yes                                 |
+| NewPath     | Path to save the updated container (defaults to CurrentPath) | CurrentPath | No                                  |
+| FolderPath  | Path to the folder with new content                          | -           | Yes                                 |
+| Passphrase  | Passphrase for containers without tokens                     | -           | Yes (for containers without tokens) |
+| Comment     | Reset comment for container                                  | -           | No                                  |
+| Tags        | Reset tags for container                                     | -           | No                                  |
 
 ### Integrity Provider Options
 
@@ -107,7 +111,8 @@ The reseal package maintains the same token type and structure as the original c
 The reseal operation preserves the original creation metadata while updating the timestamp:
 - `CreatedAt` - Preserved from the original container
 - `UpdatedAt` - Set to the current time
-- `Comment` - Preserved from the original container
+- `Comment` - Сomment can be changed
+- `Tags` - Tags cat be changed
 
 ## Error Handling
 

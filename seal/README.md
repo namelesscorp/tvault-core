@@ -25,6 +25,8 @@ container \
   -new-path="/path/to/output.tvlt" \
   -folder-path="/path/to/folder" \
   -passphrase="your-secure-passphrase" \
+  -comment="container-comment" \
+  -tags="container-tag-1,container-tag-2,container-tag-3"
 compression \
   -type="zip" \
 token \
@@ -46,23 +48,29 @@ log-writer \
 ```
 
 ## Configuration Options
+
 ### Container Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| NewPath | Path to save the encrypted container file | - | Yes |
-| FolderPath | Path to the folder to be encrypted | - | Yes |
-| Passphrase | Passphrase for encrypting the container | - | Yes |
+| Option     | Description                               | Default | Required |
+|------------|-------------------------------------------|---------|----------|
+| NewPath    | Path to save the encrypted container file | -       | Yes      |
+| FolderPath | Path to the folder to be encrypted        | -       | Yes      |
+| Passphrase | Passphrase for encrypting the container   | -       | Yes      |
+| Comment    | Container comment                         | -       | No       |
+| Tags       | Container tags                            | -       | No       |
+
 ### Compression Options
 
 | Option | Description | Default | Required |
 | --- | --- | --- | --- |
 | Type | Type of compression to use: `zip` or `none` | `zip` | No |
+
 ### Token Options
 
 | Option | Description | Default | Required |
 | --- | --- | --- | --- |
 | Type | Type of token to generate: `none`, `share` or `master` | `share` | No |
+
 ### Token Writer Options
 
 | Option | Description | Default | Required |
@@ -70,12 +78,14 @@ log-writer \
 | Type | Method to save tokens: `file` or `stdout` | `stdout` | No |
 | Path | Path to save tokens | - | Yes (for `file` type) |
 | Format | Format for token output: `plaintext` or `json` | `plaintext` | No |
+
 ### Integrity Provider Options
 
 | Option | Description | Default | Required |
 | --- | --- | --- | --- |
 | Type | Type of integrity provider: `none` or `hmac` | `hmac` | No |
 | NewPassphrase | Password for the integrity provider | - | Yes (for `hmac` type) |
+
 ### Shamir Options
 
 | Option | Description | Default | Required |
@@ -83,6 +93,7 @@ log-writer \
 | IsEnabled | Enable Shamir's Secret Sharing | `true` | No |
 | Shares | Number of shares to generate | 5 | No |
 | Threshold | Minimum shares required to reconstruct the secret | 3 | No |
+
 ### Log Writer Options
 
 | Option | Description | Default | Required |

@@ -171,3 +171,16 @@ func ConvertNameToID(name string) byte {
 		return TypeNone
 	}
 }
+
+func ConvertIDToName(id byte) string {
+	switch id {
+	case TypeNone:
+		return TypeNameNone
+	case TypeShare:
+		return TypeNameShare
+	case TypeMaster:
+		return TypeNameMaster
+	default:
+		return TypeNameNone
+	}
+}

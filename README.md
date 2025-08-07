@@ -15,6 +15,7 @@
     - [Seal](#seal)
     - [Unseal](#unseal)
     - [Reseal](#reseal)
+    - [Container](#container)
 - [Token Types](#token-types)
     - [None Type](#none-type)
     - [Master Type](#master-type)
@@ -23,6 +24,9 @@
     - [None (No Verification)](#none-no-verification)
     - [HMAC (Hash-based Message Authentication Code)](#hmac-hash-based-message-authentication-code)
     - [Ed25519 (Digital Signature)](#ed25519-digital-signature)
+- [Compression](#compression)
+  - [None](#none)
+  - [Zip](#zip)
 - [Security Best Practices](#security-best-practices)
 - [Contributing](#contributing)
 - [License](#license)
@@ -113,6 +117,8 @@ container \
   -new-path="/path/to/output.tvlt" \
   -folder-path="/path/to/folder" \
   -passphrase="your-secure-passphrase" \
+  -comment="your-comment" \
+  -tags="your-tag-1,your-tag-2,your-tag-3" \
 compression \
   -type="zip" \
 token \
@@ -181,6 +187,8 @@ container \
   -current-path="/path/to/original.tvlt" \
   -new-path="/path/to/updated.tvlt" \
   -folder-path="/path/to/new/content" \
+  -comment="your-comment" \
+  -tags="your-tag-1,your-tag-2,your-tag-3" \
 token-reader \
   -type="file" \
   -format="json" \
@@ -191,6 +199,49 @@ token-writer \
   -path="/path/to/updated/token/file" \
 integrity-provider \
   -current-passphrase="your-integrity-password" \
+log-writer \
+  -type="stdout" \
+  -format="json"
+```
+
+### Container
+
+The `container` module provides a unified format for securely storing encrypted data with comprehensive metadata. 
+It serves as the central data structure in the TVault Core system, encapsulating all encrypted content and related information.
+The container consists of several key components:
+1. **Header** - Contains essential technical information including:
+  - Encryption method and parameters
+  - Integrity provider type
+  - Token type
+  - Shamir's secret sharing configuration
+  - Cryptographic salt values
+
+2. **Metadata** - User-visible information about the container:
+  - Creation and update timestamps
+  - User comments and descriptions
+  - Custom tags for organization and filtering
+  - Container versioning information
+
+3. **Encrypted Payload** - The actual encrypted content
+
+The container module also provides functionality to inspect and retrieve detailed information about existing containers without decrypting their contents. 
+This is useful for managing multiple containers, verifying their configuration, or retrieving metadata without accessing the protected information.
+The container information retrieval process:
+1. Opens the container file
+2. Reads the header and metadata sections
+3. Extracts and formats information about the container configuration
+4. Outputs the information in the specified format (plaintext or JSON)
+
+Container info can be retrieved using the CLI:
+
+```shell
+tvault container \
+info
+  -path="/path/to/original.tvlt" \
+info-writer \
+  -type="file" \
+  -format="json" \
+  -path="/path/to/container/info/file" \
 log-writer \
   -type="stdout" \
   -format="json"
@@ -226,6 +277,54 @@ Requires an additional password to enhance protection.
 
 ### Ed25519 (Digital Signature)
 A promising mechanism based on the Ed25519 digital signature algorithm, providing a high level of protection against data forgery.
+
+## Compression
+
+The `compression` package is an essential component of the TVault Core system, providing efficient data compression before encryption. 
+This improves security, reduces the size of encrypted containers, and optimizes storage usage.
+
+The compression system is tightly integrated with other TVault Core components:
+- **Seal**: Compression is performed at the initial stage of the sealing process
+- **Unseal**: Decompression is performed at the final stage of the unsealing process
+- **Reseal**: Recompression is performed when updating container content
+- **Container**: Information about the compression type is stored in container metadata
+
+Compression Process:
+1. **Algorithm Selection**: Based on the parameter, the appropriate compression method is selected `-type`
+2. **Directory Analysis**: The specified directory structure is scanned
+3. **File Compression**: All files are compressed while preserving paths and metadata
+4. **Archive Creation**: A single archive containing all compressed data is created
+5. **Result Passing**: The compressed data is passed for subsequent encryption
+
+Decompression Process:
+1. **Data Extraction**: After container decryption, the compressed data is extracted
+2. **Compression Type Identification**: Based on container metadata, the compression method used is determined
+3. **File Unpacking**: All files are extracted with restoration of the original structure
+4. **Integrity Verification**: The integrity of the extracted data is verified
+5. **Access Restoration**: Original access rights to files and directories are restored
+
+### None
+
+The no-compression mode is included in the system architecture but is not currently implemented.
+In future versions, it may be added for scenarios where compression is not required or might be detrimental (such as for already compressed data).
+
+### Zip
+
+The Zip compression algorithm is the primary compression method in TVault Core.
+It provides a good balance between compression ratio and processing speed.
+
+**Key Features:**
+- **High Compatibility**: Uses the standard ZIP format compatible with most archiving tools
+- **File Structure Preservation**: Fully maintains directory and file hierarchy
+- **Efficient Compression**: Offers a good balance between compressed data size and processing speed
+- **Built-in Integrity Checking**: Includes basic data integrity verification mechanisms
+
+```shell
+tvault seal \
+compression \
+  -type="zip" \
+# other command parameters
+```
 
 ## Security Best Practices
 

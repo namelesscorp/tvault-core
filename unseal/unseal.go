@@ -18,9 +18,14 @@ import (
 
 // Unseal - decrypts a container, restores its data, and unpacks its content to the specified folder using given options.
 func Unseal(opts Options) error {
-	cont, err := OpenContainer(*opts.Container.CurrentPath)
-	if err != nil {
-		return lib.InternalErr(
+	cont := container.NewContainer(
+		*opts.Container.CurrentPath,
+		nil,
+		container.Metadata{Tags: make([]string, 0)},
+		container.Header{},
+	)
+	if err := cont.Read(); err != nil {
+		return lib.IOErr(
 			lib.CategoryUnseal,
 			lib.ErrCodeUnsealOpenContainerError,
 			lib.ErrMessageUnsealOpenContainerError,
@@ -38,7 +43,7 @@ func Unseal(opts Options) error {
 		)
 
 		var tokenString string
-		tokenString, err = GetTokenString(opts.TokenReader)
+		tokenString, err := GetTokenString(opts.TokenReader)
 		if err != nil {
 			return lib.InternalErr(
 				lib.CategoryUnseal,
@@ -88,7 +93,7 @@ func Unseal(opts Options) error {
 		)
 	}
 
-	if err = cont.Decrypt(masterKey); err != nil {
+	if err := cont.Decrypt(masterKey); err != nil {
 		return lib.InternalErr(
 			lib.CategoryUnseal,
 			lib.ErrCodeUnsealContainerError,
@@ -98,7 +103,7 @@ func Unseal(opts Options) error {
 		)
 	}
 
-	if err = unpackContent(cont.GetData(), *opts.Container.FolderPath, cont.GetHeader().CompressionType); err != nil {
+	if err := unpackContent(cont.GetData(), *opts.Container.FolderPath, cont.GetHeader().CompressionType); err != nil {
 		return lib.InternalErr(
 			lib.CategoryUnseal,
 			lib.ErrCodeUnsealUnpackContentError,
@@ -109,21 +114,6 @@ func Unseal(opts Options) error {
 	}
 
 	return nil
-}
-
-func OpenContainer(containerPath string) (container.Container, error) {
-	cont := container.NewContainer(containerPath, nil, container.Metadata{}, container.Header{})
-	if err := cont.Read(); err != nil {
-		return nil, lib.IOErr(
-			lib.CategoryUnseal,
-			lib.ErrCodeUnsealOpenContainerError,
-			lib.ErrMessageUnsealOpenContainerError,
-			"",
-			err,
-		)
-	}
-
-	return cont, nil
 }
 
 func DeriveIntegrityProviderPassphrase(passphrase string, salt [16]byte) []byte {

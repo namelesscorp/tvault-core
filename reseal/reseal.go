@@ -16,9 +16,14 @@ import (
 
 // Reseal - processes a sealed container by decrypting, modifying, and re-encrypting it with updated metadata and tokens.
 func Reseal(opts Options) error {
-	currentContainer, err := unseal.OpenContainer(*opts.Container.CurrentPath)
-	if err != nil {
-		return lib.InternalErr(
+	currentContainer := container.NewContainer(
+		*opts.Container.CurrentPath,
+		nil,
+		container.Metadata{Tags: make([]string, 0)},
+		container.Header{},
+	)
+	if err := currentContainer.Read(); err != nil {
+		return lib.IOErr(
 			lib.CategoryReseal,
 			lib.ErrCodeResealOpenContainerError,
 			lib.ErrMessageResealOpenContainerError,
@@ -27,10 +32,21 @@ func Reseal(opts Options) error {
 		)
 	}
 
+	var comment = *opts.Container.Comment
+	if comment == "" {
+		comment = currentContainer.GetMetadata().Comment
+	}
+
+	var tags = seal.ParseTags(*opts.Container.Tags)
+	if len(tags) == 0 {
+		tags = currentContainer.GetMetadata().Tags
+	}
+
 	currentContainer.SetMetadata(container.Metadata{
 		CreatedAt: currentContainer.GetMetadata().CreatedAt,
 		UpdatedAt: time.Now(),
-		Comment:   currentContainer.GetMetadata().Comment,
+		Comment:   comment,
+		Tags:      tags,
 	})
 
 	var masterKey []byte
@@ -42,7 +58,7 @@ func Reseal(opts Options) error {
 		)
 
 		var tokenString string
-		tokenString, err = unseal.GetTokenString(opts.TokenReader)
+		tokenString, err := unseal.GetTokenString(opts.TokenReader)
 		if err != nil {
 			return lib.InternalErr(
 				lib.CategoryReseal,
@@ -135,7 +151,7 @@ func Reseal(opts Options) error {
 	salt := currentContainer.GetHeader().Salt
 	integrityProvider, additionalPassword, err := newIntegrityArtifacts(
 		&lib.IntegrityProvider{
-			Type:          lib.StringPtr(integrity.ConvertIDToName(currentContainer.GetHeader().ProviderType)),
+			Type:          lib.StringPtr(integrity.ConvertIDToName(currentContainer.GetHeader().IntegrityProviderType)),
 			NewPassphrase: getIntegrityProviderPassphrasePtr(opts.IntegrityProvider),
 		},
 		salt[:],

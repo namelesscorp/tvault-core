@@ -12,7 +12,7 @@ package container
 // | 0x06   | 16  | salt (PBKDF2)						        |
 // | 0x16   | 4	  | iterations (PBKDF2)					        |
 // | 0x1A   | 1	  | compression type					     	|
-// | 0x1B   | 1	  | provider type						     	|
+// | 0x1B   | 1	  | integrity provider type				     	|
 // | 0x1C   | 1	  | token type							        |
 // | 0x1D   | 12  | nonce (AES-GCM)						        |
 // | 0x29   | 4	  | metadata length						        |
@@ -73,6 +73,10 @@ func NewContainer(
 	metadata Metadata,
 	header Header,
 ) Container {
+	if metadata.Comment == "" {
+		metadata.Comment = defaultComment
+	}
+
 	return &container{
 		path:      path,
 		metadata:  metadata,

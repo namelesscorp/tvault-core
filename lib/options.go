@@ -35,6 +35,8 @@ type (
 		CurrentPath *string
 		FolderPath  *string
 		Passphrase  *string
+		Comment     *string
+		Tags        *string
 	}
 
 	Token struct {

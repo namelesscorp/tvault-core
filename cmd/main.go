@@ -13,17 +13,20 @@ import (
 const (
 	cliVersion = "v0.0.1"
 
-	commandSeal    = "seal"
-	commandUnseal  = "unseal"
-	commandReseal  = "reseal"
-	commandVersion = "version"
-	commandInfo    = "info"
+	commandSeal      = "seal"
+	commandUnseal    = "unseal"
+	commandReseal    = "reseal"
+	commandVersion   = "version"
+	commandInfo      = "info"
+	commandContainer = "container"
 
 	subContainer         = "container"
+	subInfo              = "info"
 	subToken             = "token"
 	subCompression       = "compression"
 	subIntegrityProvider = "integrity-provider"
 	subShamir            = "shamir"
+	subInfoWriter        = "info-writer"
 	subTokenWriter       = "token-writer"
 	subTokenReader       = "token-reader"
 	subLogWriter         = "log-writer"
@@ -42,6 +45,7 @@ var (
 		subTokenWriter:       true,
 		subTokenReader:       true,
 		subLogWriter:         true,
+		subInfoWriter:        true,
 	}
 )
 
@@ -76,6 +80,11 @@ func main() {
 			lib.ErrorFormatted(logWriter, commandReseal, err)
 			return
 		}
+	case commandContainer:
+		if logWriter, err := handleContainer(os.Args[2:]); err != nil {
+			lib.ErrorFormatted(logWriter, commandContainer, err)
+			return
+		}
 	case commandVersion:
 		fmt.Printf(
 			"tvault-core:\n- cli = %s\n- container = v%d\n- token = v%d\n",
@@ -99,11 +108,12 @@ func main() {
 		)
 	default:
 		fmt.Printf(
-			"unknown command: %s; use [%s | %s | %s | %s | %s]",
+			"unknown command: %s; use [%s | %s | %s | %s | %s | %s]",
 			os.Args[1],
 			commandSeal,
 			commandUnseal,
 			commandReseal,
+			commandContainer,
 			commandVersion,
 			commandInfo,
 		)

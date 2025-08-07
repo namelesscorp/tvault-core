@@ -50,6 +50,8 @@ func createDefaultResealOptions() reseal.Options {
 			CurrentPath: lib.StringPtr(""),
 			FolderPath:  lib.StringPtr(""),
 			Passphrase:  lib.StringPtr(""),
+			Comment:     lib.StringPtr(""),
+			Tags:        lib.StringPtr(""),
 		},
 		IntegrityProvider: &lib.IntegrityProvider{
 			Type:              lib.StringPtr(""),
@@ -124,6 +126,8 @@ func processResealContainer(options *lib.Container, args []string) error {
 	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for reseal")
 	options.Passphrase = flagSet.String("passphrase", "", "passphrase to reseal container file")
+	options.Comment = flagSet.String("comment", "", "container comment")
+	options.Tags = flagSet.String("tags", "", "container tags")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)

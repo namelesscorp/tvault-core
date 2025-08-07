@@ -15,10 +15,10 @@ type ErrorType byte
 
 const (
 	ErrorTypeValidation ErrorType = 0x000
-	ErrorTypeInternal   ErrorType = 0x020
-	ErrorTypeIO         ErrorType = 0x030
-	ErrorTypeCrypto     ErrorType = 0x040
-	ErrorTypeFormat     ErrorType = 0x050
+	ErrorTypeInternal   ErrorType = 0x010
+	ErrorTypeIO         ErrorType = 0x020
+	ErrorTypeCrypto     ErrorType = 0x030
+	ErrorTypeFormat     ErrorType = 0x040
 )
 
 type ErrorCategory uint16
@@ -151,6 +151,12 @@ const (
 	ErrCodeTokenTypeInvalid             ErrorCode = 0x00102
 	ErrCodeShamirIsEnabledTrueRequired  ErrorCode = 0x00103
 	ErrCodeIntegrityProviderTypeNotNone ErrorCode = 0x00104
+
+	ErrCodeInfoWriterTypeInvalid   ErrorCode = 0x00105
+	ErrCodeInfoWriterPathRequired  ErrorCode = 0x00106
+	ErrCodeInfoWriterFormatInvalid ErrorCode = 0x00107
+
+	ErrCodeInfoPathRequired ErrorCode = 0x00108
 )
 
 const (
@@ -280,6 +286,12 @@ const (
 	SuggestionShamirThresholdLessThan2      = "threshold must be at least 2, specify a value >= 2"
 	SuggestionShamirSharesGreaterThan255    = "number of shares must not exceed 255, specify a value <= 255"
 	SuggestionShamirThresholdGreaterThan255 = "threshold must not exceed 255, specify a value <= 255"
+
+	SuggestionInfoWriterType   = "specify a valid info writer type, available options: [file | stdout]"
+	SuggestionInfoWriterFormat = "specify a valid info writer format, available options: [plaintext | json]"
+	SuggestionInfoWriterPath   = "for info writer type file, you must specify a path using the -path flag"
+
+	SuggestionInfoPathRequired = "for container info, you must specify a path using the -path flag"
 )
 
 // Validation errors
@@ -318,6 +330,12 @@ var (
 	ErrShamirThresholdLessThan2      = errors.New("shamir -threshold must be less than 2")
 	ErrShamirSharesGreaterThan255    = errors.New("shamir -shares must be less than 255")
 	ErrShamirThresholdGreaterThan255 = errors.New("shamir -threshold must be less than 255")
+
+	ErrInfoWriterTypeInvalid   = errors.New("info-writer -type must be [file | stdout]")
+	ErrInfoWriterFormatInvalid = errors.New("info-writer -format must be [plaintext | json]")
+	ErrInfoWriterPathRequired  = errors.New("info-writer -path is required for info-writer -type=[file]")
+
+	ErrInfoPathRequired = errors.New("info -path is required for command container")
 )
 
 var errorToSuggestion = map[error]string{
@@ -355,6 +373,12 @@ var errorToSuggestion = map[error]string{
 	ErrShamirThresholdLessThan2:      SuggestionShamirThresholdLessThan2,
 	ErrShamirSharesGreaterThan255:    SuggestionShamirSharesGreaterThan255,
 	ErrShamirThresholdGreaterThan255: SuggestionShamirThresholdGreaterThan255,
+
+	ErrInfoWriterTypeInvalid:   SuggestionInfoWriterType,
+	ErrInfoWriterFormatInvalid: SuggestionInfoWriterFormat,
+	ErrInfoWriterPathRequired:  SuggestionInfoWriterPath,
+
+	ErrInfoPathRequired: SuggestionInfoPathRequired,
 }
 
 var errorToCode = map[error]ErrorCode{
@@ -392,6 +416,12 @@ var errorToCode = map[error]ErrorCode{
 	ErrShamirThresholdLessThan2:      ErrCodeShamirThresholdLessThanTwo,
 	ErrShamirSharesGreaterThan255:    ErrCodeShamirSharesGreaterThan255,
 	ErrShamirThresholdGreaterThan255: ErrCodeShamirThresholdGreaterThan255,
+
+	ErrInfoWriterTypeInvalid:   ErrCodeInfoWriterTypeInvalid,
+	ErrInfoWriterFormatInvalid: ErrCodeInfoWriterFormatInvalid,
+	ErrInfoWriterPathRequired:  ErrCodeInfoWriterPathRequired,
+
+	ErrInfoPathRequired: ErrCodeInfoPathRequired,
 }
 
 // Internal errors

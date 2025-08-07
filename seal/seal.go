@@ -33,11 +33,10 @@ func Seal(options Options) error {
 
 	masterKey, containerSalt, err := CreateContainer(
 		data,
-		[]byte(*options.Container.Passphrase),
 		compID,
 		integrity.ConvertNameToID(*options.IntegrityProvider.Type),
 		token.ConvertNameToID(*options.Token.Type),
-		*options.Container.NewPath,
+		options.Container,
 		options.Shamir,
 	)
 	if err != nil {
@@ -113,9 +112,9 @@ func CompressFolder(compressionType, folderPath string) ([]byte, byte, error) {
 }
 
 func CreateContainer(
-	data, passphrase []byte,
+	data []byte,
 	compressionID, integrityProviderID, tokenID byte,
-	containerPath string,
+	containerOpts *lib.Container,
 	shamir *lib.Shamir,
 ) ([]byte, []byte, error) {
 	header, err := container.NewHeader(
@@ -136,17 +135,18 @@ func CreateContainer(
 	}
 
 	cont := container.NewContainer(
-		containerPath,
+		*containerOpts.NewPath,
 		nil,
 		container.Metadata{
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
-			Comment:   "created by tvault-core",
+			Comment:   *containerOpts.Comment,
+			Tags:      ParseTags(*containerOpts.Tags),
 		},
 		header,
 	)
 
-	if err = cont.Encrypt(data, passphrase); err != nil {
+	if err = cont.Encrypt(data, []byte(*containerOpts.Passphrase)); err != nil {
 		return nil, nil, lib.CryptoErr(
 			lib.CategorySeal,
 			lib.ErrCodeSealEncryptContainerError,
@@ -169,6 +169,17 @@ func CreateContainer(
 	var containerHeaderSalt = cont.GetHeader().Salt
 
 	return cont.GetMasterKey(), containerHeaderSalt[:], nil
+}
+
+func ParseTags(tags string) []string {
+	var tagList = make([]string, 0)
+	tagList = strings.Split(tags, ",")
+
+	for i, tag := range tagList {
+		tagList[i] = strings.TrimSpace(tag)
+	}
+
+	return tagList
 }
 
 func CreateIntegrityProviderWithNewPassphrase(integrityProvider *lib.IntegrityProvider) (integrity.Provider, error) {

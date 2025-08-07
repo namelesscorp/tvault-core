@@ -15,34 +15,34 @@ const (
 )
 
 type Header struct {
-	Signature       [4]byte  // signature for validate container - "TVLT"
-	Version         uint8    // container version - "0x01"
-	Flags           uint8    // binary flags - "0x01". NOT SUPPORTED
-	Salt            [16]byte // salt for passphrase
-	Iterations      uint32   // PBKDF2 rounds
-	CompressionType uint8    // compression type for data - "0x01"
-	ProviderType    uint8    // provider type for token - "0x01"
-	TokenType       uint8    // token type - "0x01"
-	Nonce           [12]byte // AES‑GCM nonce (number used once)
-	MetadataSize    uint32   // metadata size
-	Shares          uint8    // shamir number of shares
-	Threshold       uint8    // shamir threshold count
+	Signature             [4]byte  // signature for validate container - "TVLT"
+	Version               uint8    // container version - "0x01"
+	Flags                 uint8    // binary flags - "0x01". NOT SUPPORTED
+	Salt                  [16]byte // salt for passphrase
+	Iterations            uint32   // PBKDF2 rounds
+	CompressionType       uint8    // compression type for data - "0x01"
+	IntegrityProviderType uint8    // integrity provider type for token - "0x01"
+	TokenType             uint8    // token type - "0x01"
+	Nonce                 [12]byte // AES‑GCM nonce (number used once)
+	MetadataSize          uint32   // metadata size
+	Shares                uint8    // shamir number of shares
+	Threshold             uint8    // shamir threshold count
 }
 
 func NewHeader(
 	compressionType byte,
-	providerType byte,
+	integrityProviderType byte,
 	tokenType byte,
 	shares, threshold uint8,
 ) (Header, error) {
 	var h = Header{
-		Version:         Version,
-		Iterations:      lib.Iterations,
-		CompressionType: compressionType,
-		Shares:          shares,
-		Threshold:       threshold,
-		ProviderType:    providerType,
-		TokenType:       tokenType,
+		Version:               Version,
+		Iterations:            lib.Iterations,
+		CompressionType:       compressionType,
+		Shares:                shares,
+		Threshold:             threshold,
+		IntegrityProviderType: integrityProviderType,
+		TokenType:             tokenType,
 	}
 
 	if _, err := rand.Read(h.Salt[:]); err != nil {
