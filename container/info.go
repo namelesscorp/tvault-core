@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 	"io"
-	"path"
 	"strings"
 	"time"
 
@@ -58,20 +57,12 @@ func Info(opts Options) error {
 		}(closer)
 	}
 
-	var (
-		containerName = path.Base(*opts.Path)
-		pathList      = strings.Split(containerName, ".")
-	)
-	if len(pathList) == 2 {
-		containerName = pathList[0]
-	}
-
 	var msg any
 	switch *opts.InfoWriter.Format {
 	case lib.WriterFormatPlaintext:
 		msg = fmt.Sprintf(
 			containerInformationMessage,
-			containerName,
+			cont.GetMetadata().Name,
 			cont.GetHeader().Version,
 			cont.GetMetadata().CreatedAt.Format(time.DateTime),
 			cont.GetMetadata().UpdatedAt.Format(time.DateTime),
@@ -85,7 +76,7 @@ func Info(opts Options) error {
 		)
 	case lib.WriterFormatJSON:
 		msg = Information{
-			Name:                  containerName,
+			Name:                  cont.GetMetadata().Name,
 			Version:               cont.GetHeader().Version,
 			CreatedAt:             cont.GetMetadata().CreatedAt.Format(time.DateTime),
 			UpdatedAt:             cont.GetMetadata().UpdatedAt.Format(time.DateTime),

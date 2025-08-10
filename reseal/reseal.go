@@ -42,7 +42,13 @@ func Reseal(opts Options) error {
 		tags = currentContainer.GetMetadata().Tags
 	}
 
+	var containerName = *opts.Container.Name
+	if containerName == "" {
+		containerName = currentContainer.GetMetadata().Name
+	}
+
 	currentContainer.SetMetadata(container.Metadata{
+		Name:      containerName,
 		CreatedAt: currentContainer.GetMetadata().CreatedAt,
 		UpdatedAt: time.Now(),
 		Comment:   comment,

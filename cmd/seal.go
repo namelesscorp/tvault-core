@@ -50,6 +50,7 @@ func handleSeal(args []string) (*lib.Writer, error) {
 func createDefaultSealOptions() seal.Options {
 	return seal.Options{
 		Container: &lib.Container{
+			Name:        lib.StringPtr(""),
 			NewPath:     lib.StringPtr(""),
 			CurrentPath: lib.StringPtr(""),
 			FolderPath:  lib.StringPtr(""),
@@ -139,6 +140,7 @@ func parseSealSubcommands(args []string, options *seal.Options) (map[string]bool
 func processSealContainer(options *lib.Container, args []string) error {
 	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
 
+	options.Name = flagSet.String("name", "", "container name")
 	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for seal")
 	options.Passphrase = flagSet.String("passphrase", "", "container passphrase")

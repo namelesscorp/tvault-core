@@ -114,6 +114,7 @@ The sealing process includes:
 ```shell
 tvault seal \
 container \
+  -name="container-name" \
   -new-path="/path/to/output.tvlt" \
   -folder-path="/path/to/folder" \
   -passphrase="your-secure-passphrase" \
@@ -184,6 +185,7 @@ The resealing process includes:
 ```shell
 tvault reseal \
 container \
+  -name="new-container-name" \
   -current-path="/path/to/original.tvlt" \
   -new-path="/path/to/updated.tvlt" \
   -folder-path="/path/to/new/content" \

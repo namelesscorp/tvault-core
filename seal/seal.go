@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"path"
 	"strings"
 	"time"
 
@@ -134,10 +135,21 @@ func CreateContainer(
 		)
 	}
 
+	var containerName = *containerOpts.Name
+	if containerName == "" {
+		containerName = path.Base(*containerOpts.NewPath)
+
+		var pathList = strings.Split(containerName, ".")
+		if len(pathList) == 2 {
+			containerName = pathList[0]
+		}
+	}
+
 	cont := container.NewContainer(
 		*containerOpts.NewPath,
 		nil,
 		container.Metadata{
+			Name:      containerName,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 			Comment:   *containerOpts.Comment,
@@ -172,6 +184,10 @@ func CreateContainer(
 }
 
 func ParseTags(tags string) []string {
+	if tags == "" {
+		return make([]string, 0)
+	}
+
 	var tagList = strings.Split(tags, ",")
 	for i, tag := range tagList {
 		tagList[i] = strings.TrimSpace(tag)

@@ -46,6 +46,7 @@ func handleReseal(args []string) (*lib.Writer, error) {
 func createDefaultResealOptions() reseal.Options {
 	return reseal.Options{
 		Container: &lib.Container{
+			Name:        lib.StringPtr(""),
 			NewPath:     lib.StringPtr(""),
 			CurrentPath: lib.StringPtr(""),
 			FolderPath:  lib.StringPtr(""),
@@ -122,6 +123,7 @@ func parseResealSubcommands(args []string, options *reseal.Options) (map[string]
 func processResealContainer(options *lib.Container, args []string) error {
 	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
 
+	options.Name = flagSet.String("name", "", "container name")
 	options.CurrentPath = flagSet.String("current-path", "", "current path to container file")
 	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
 	options.FolderPath = flagSet.String("folder-path", "", "path to folder for reseal")

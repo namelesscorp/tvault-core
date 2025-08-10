@@ -22,6 +22,7 @@ The reseal package can be used programmatically or through the command-line inte
 ```shell
 tvault reseal \
 container \
+  -name="new-container-name" \
   -current-path="/path/to/original.tvlt" \
   -new-path="/path/to/updated.tvlt" \
   -folder-path="/path/to/new/content" \
@@ -50,6 +51,7 @@ log-writer \
 
 | Option      | Description                                                  | Default     | Required                            |
 |-------------|--------------------------------------------------------------|-------------|-------------------------------------|
+| Name        | Reset container name                                         | -           | No                                  |
 | CurrentPath | Path to the original encrypted container                     | -           | Yes                                 |
 | NewPath     | Path to save the updated container (defaults to CurrentPath) | CurrentPath | No                                  |
 | FolderPath  | Path to the folder with new content                          | -           | Yes                                 |

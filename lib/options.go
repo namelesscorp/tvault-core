@@ -31,6 +31,7 @@ type (
 	}
 
 	Container struct {
+		Name        *string
 		NewPath     *string
 		CurrentPath *string
 		FolderPath  *string

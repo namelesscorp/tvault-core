@@ -22,6 +22,7 @@ The seal package can be used programmatically or through the command-line interf
 ```shell
 tvault seal \
 container \
+  -name="container-name" \
   -new-path="/path/to/output.tvlt" \
   -folder-path="/path/to/folder" \
   -passphrase="your-secure-passphrase" \
@@ -51,13 +52,14 @@ log-writer \
 
 ### Container Options
 
-| Option     | Description                               | Default | Required |
-|------------|-------------------------------------------|---------|----------|
-| NewPath    | Path to save the encrypted container file | -       | Yes      |
-| FolderPath | Path to the folder to be encrypted        | -       | Yes      |
-| Passphrase | Passphrase for encrypting the container   | -       | Yes      |
-| Comment    | Container comment                         | -       | No       |
-| Tags       | Container tags                            | -       | No       |
+| Option     | Description                               | Default             | Required |
+|------------|-------------------------------------------|---------------------|----------|
+| Name       | Container name                            | Container file name | No       |
+| NewPath    | Path to save the encrypted container file | -                   | Yes      |
+| FolderPath | Path to the folder to be encrypted        | -                   | Yes      |
+| Passphrase | Passphrase for encrypting the container   | -                   | Yes      |
+| Comment    | Container comment                         | -                   | No       |
+| Tags       | Container tags                            | -                   | No       |
 
 ### Compression Options
 
