@@ -112,13 +112,17 @@ jobs:
         run: |
           mkdir -p dist
           # Windows 64-bit
-          GOOS=windows GOARCH=amd64 go build -o dist/trustvault-windows-amd64.exe ./...
+          GOOS=windows GOARCH=amd64 go build -o dist/tvault-core-windows-amd64.exe ./cmd
           # Windows 32-bit
-          GOOS=windows GOARCH=386 go build -o dist/trustvault-windows-386.exe ./...
+          GOOS=windows GOARCH=386 go build -o dist/tvault-core-windows-386.exe ./cmd
           # macOS Intel
-          GOOS=darwin GOARCH=amd64 go build -o dist/trustvault-darwin-amd64 ./...
+          GOOS=darwin GOARCH=amd64 go build -o dist/tvault-core-darwin-amd64 ./cmd
           # macOS Apple Silicon
-          GOOS=darwin GOARCH=arm64 go build -o dist/trustvault-darwin-arm64 ./...
+          GOOS=darwin GOARCH=arm64 go build -o dist/tvault-core-darwin-arm64 ./cmd
+          # Linux AMD64
+          GOOS=linux GOARCH=amd64 go build -o dist/tvault-core-linux-amd64 ./cmd
+          # Linux ARM64
+          GOOS=linux GOARCH=arm64 go build -o dist/tvault-core-linux-arm64 ./cmd
       - name: Upload release binaries
         uses: softprops/action-gh-release@v2
         with:
