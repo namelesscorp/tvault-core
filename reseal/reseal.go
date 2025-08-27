@@ -2,6 +2,7 @@ package reseal
 
 import (
 	"io"
+	"strings"
 	"time"
 
 	"github.com/namelesscorp/tvault-core/compression"
@@ -32,18 +33,18 @@ func Reseal(opts Options) error {
 		)
 	}
 
-	var comment = *opts.Container.Comment
-	if comment == "" {
-		comment = currentContainer.GetMetadata().Comment
+	var comment = currentContainer.GetMetadata().Comment
+	if *opts.Container.Comment != comment {
+		comment = *opts.Container.Comment
 	}
 
-	var tags = seal.ParseTags(*opts.Container.Tags)
-	if len(tags) == 0 {
-		tags = currentContainer.GetMetadata().Tags
+	var tags = currentContainer.GetMetadata().Tags
+	if *opts.Container.Tags != strings.Join(tags, ",") {
+		tags = lib.ParseTags(*opts.Container.Tags)
 	}
 
 	var containerName = *opts.Container.Name
-	if containerName == "" {
+	if *opts.Container.Name == "" {
 		containerName = currentContainer.GetMetadata().Name
 	}
 

@@ -123,13 +123,13 @@ func parseResealSubcommands(args []string, options *reseal.Options) (map[string]
 func processResealContainer(options *lib.Container, args []string) error {
 	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
 
-	options.Name = flagSet.String("name", "", "container name")
-	options.CurrentPath = flagSet.String("current-path", "", "current path to container file")
-	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
-	options.FolderPath = flagSet.String("folder-path", "", "path to folder for reseal")
-	options.Passphrase = flagSet.String("passphrase", "", "passphrase to reseal container file")
-	options.Comment = flagSet.String("comment", "", "container comment")
-	options.Tags = flagSet.String("tags", "", "container tags")
+	options.Name = flagSet.String("name", "", "container name (not required); default: container path name")
+	options.CurrentPath = flagSet.String("current-path", "", "current path to container file (required); default: empty")
+	options.NewPath = flagSet.String("new-path", "", "new path to save container file (not required); default: empty")
+	options.FolderPath = flagSet.String("folder-path", "", "path to folder for reseal (required); default: empty")
+	options.Passphrase = flagSet.String("passphrase", "", "passphrase to reseal container file (required for seal token -type=none); default: empty")
+	options.Comment = flagSet.String("comment", "", "container comment (not required); default: empty)")
+	options.Tags = flagSet.String("tags", "", "container tags, comma separated (not required); default: empty)")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)
@@ -141,8 +141,8 @@ func processResealContainer(options *lib.Container, args []string) error {
 func processResealIntegrityProvider(options *lib.IntegrityProvider, args []string) error {
 	var flagSet = flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
 
-	options.CurrentPassphrase = flagSet.String("current-passphrase", "", "current passphrase")
-	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase")
+	options.CurrentPassphrase = flagSet.String("current-passphrase", "", "current passphrase (required for seal integrity-provider -type=hmac); default: empty)")
+	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase for refresh integrity provider (not required); default: empty)")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subIntegrityProvider, err)
@@ -154,10 +154,10 @@ func processResealIntegrityProvider(options *lib.IntegrityProvider, args []strin
 func processResealTokenReader(options *lib.Reader, args []string) error {
 	var flagSet = flag.NewFlagSet(subTokenReader, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", lib.ReaderTypeFlag, "type [file | stdin | flag]")
-	options.Path = flagSet.String("path", "", "path to file")
-	options.Flag = flagSet.String("flag", "", "token from flag")
-	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
+	options.Type = flagSet.String("type", lib.ReaderTypeFlag, "type [file | stdin | flag]; default: flag")
+	options.Path = flagSet.String("path", "", "path to file (required for -type=file); default: empty")
+	options.Flag = flagSet.String("flag", "", "token from flag (required for -type=flag); default: empty")
+	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]; default: json")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subTokenReader, err)
@@ -169,9 +169,9 @@ func processResealTokenReader(options *lib.Reader, args []string) error {
 func processResealTokenWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subTokenWriter, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
-	options.Path = flagSet.String("path", "", "path to file")
-	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
+	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]; default: stdout")
+	options.Path = flagSet.String("path", "", "path to file (required for -type=file); default: empty")
+	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]; default: json")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subTokenWriter, err)
@@ -183,9 +183,9 @@ func processResealTokenWriter(options *lib.Writer, args []string) error {
 func processResealLogWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subLogWriter, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
-	options.Path = flagSet.String("path", "", "path to file")
-	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
+	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]; default: stdout")
+	options.Path = flagSet.String("path", "", "path to file (required for -type=file); default: empty")
+	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]; default: json")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subLogWriter, err)

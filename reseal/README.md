@@ -45,51 +45,80 @@ log-writer \
   -format="json"
 ```
 
+```json
+{
+  "token_list": [
+    "master token"
+  ]
+}
+```
+
+```json
+{
+  "token_list": [
+    "share token 1", 
+    "share token 1"
+  ]
+}
+```
+
 ## Configuration Options
 
 ### Container Options
 
-| Option      | Description                                                  | Default     | Required                            |
-|-------------|--------------------------------------------------------------|-------------|-------------------------------------|
-| Name        | Reset container name                                         | -           | No                                  |
-| CurrentPath | Path to the original encrypted container                     | -           | Yes                                 |
-| NewPath     | Path to save the updated container (defaults to CurrentPath) | CurrentPath | No                                  |
-| FolderPath  | Path to the folder with new content                          | -           | Yes                                 |
-| Passphrase  | Passphrase for containers without tokens                     | -           | Yes (for containers without tokens) |
-| Comment     | Reset comment for container                                  | -           | No                                  |
-| Tags        | Reset tags for container                                     | -           | No                                  |
+Command: container
+
+| Option      | Description                                                  | Default      | Required                                 | Flag          |
+|-------------|--------------------------------------------------------------|--------------|------------------------------------------|---------------|
+| Name        | Reset container name                                         | Current name | No                                       | -name         |
+| CurrentPath | Path to the original encrypted container                     | Empty        | Yes                                      | -current-path |
+| NewPath     | Path to save the updated container (defaults to CurrentPath) | Current path | No                                       | -new-path     |
+| FolderPath  | Path to the folder with new content                          | Empty        | Yes                                      | -folder-path  |
+| Passphrase  | Passphrase for containers without tokens                     | Empty        | Yes (for containers without tokens)      | -passphrase   |
+| Comment     | Reset comment for container                                  | Empty        | Yes (enter current comment or set empty) | -comment      |
+| Tags        | Reset tags for container                                     | Empty        | Yes (enter current tags or set empty)    | -tags         |
+
+**Important: ** comment and tags should be current or empty
 
 ### Integrity Provider Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| CurrentPassphrase | Current password for integrity verification | - | Yes (for HMAC integrity provider) |
-| NewPassphrase | New password for integrity verification (defaults to CurrentPassphrase) | CurrentPassphrase | No |
+Command: integrity-provider
+
+| Option            | Description                                                             | Default            | Required                          | Flag                |
+|-------------------|-------------------------------------------------------------------------|--------------------|-----------------------------------|---------------------|
+| CurrentPassphrase | Current password for integrity verification                             | Empty              | Yes (for HMAC integrity provider) | -current-passphrase |
+| NewPassphrase     | New password for integrity verification (defaults to CurrentPassphrase) | Current passphrase | No                                | -new-passphrase     |
 
 ### Token Reader Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to read tokens: `file` or `flag` | - | Yes |
-| Path | Path to read tokens from | - | Yes (for `file` type) |
-| Format | Format of tokens: `plaintext` or `json` | - | Yes |
-| Flag | Token value passed as flag | - | Yes (for `flag` type) |
+Command: token-reader
+
+| Option | Description                                      | Default | Required              | Flag    |
+|--------|--------------------------------------------------|---------|-----------------------|---------|
+| Type   | Method to read tokens: `file`, `flag` or `stdin` | Flag    | Yes                   | -type   |
+| Path   | Path to read tokens from                         | Empty   | Yes (for `file` type) | -path   |
+| Format | Format of tokens: `plaintext` or `json`          | JSON    | Yes                   | -format |
+| Flag   | Token value passed as flag                       | Empty   | Yes (for `flag` type) | -flag   |
 
 ### Token Writer Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to write updated tokens: `file` or `stdout` | - | Yes |
-| Path | Path to write tokens to | - | Yes (for `file` type) |
-| Format | Format of tokens: `plaintext` or `json` | - | Yes |
+Command: token-writer
+
+| Option | Description                                        | Default | Required              | Flag    |
+|--------|----------------------------------------------------|---------|-----------------------|---------|
+| Type   | Method to write updated tokens: `file` or `stdout` | stdout  | Yes                   | -type   |
+| Path   | Path to write tokens to                            | Empty   | Yes (for `file` type) | -path   |
+| Format | Format of tokens: `plaintext` or `json`            | JSON    | Yes                   | -format |
 
 ### Log Writer Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to write logs: `file` or `stdout` | - | Yes |
-| Format | Format of logs: `plaintext` or `json` | - | Yes |
-| Path | Path to write logs to | - | Yes (for `file` type) |
+Command: log-writer
+
+| Option | Description                              | Default | Required              | Flag    |
+|--------|------------------------------------------|---------|-----------------------|---------|
+| Type   | Method to write logs: `file` or `stdout` | stdout  | Yes                   | -type   |
+| Format | Format of logs: `plaintext` or `json`    | JSON    | Yes                   | -format |
+| Path   | Path to write logs                       | Empty   | Yes (for `file` type) | -path   |
 
 ## Reseal Process
 
@@ -111,9 +140,10 @@ The reseal package maintains the same token type and structure as the original c
 ## Metadata Handling
 
 The reseal operation preserves the original creation metadata while updating the timestamp:
+- `Name`      - Container name
 - `CreatedAt` - Preserved from the original container
 - `UpdatedAt` - Set to the current time
-- `Comment` - Сomment can be changed
+- `Comment` - Comment can be changed
 - `Tags` - Tags cat be changed
 
 ## Error Handling

@@ -48,61 +48,92 @@ log-writer \
   -format="json"
 ```
 
+```json
+{
+  "token_list": [
+    "master token"
+  ]
+}
+```
+
+```json
+{
+  "token_list": [
+    "share token 1", 
+    "share token 1"
+  ]
+}
+```
+
 ## Configuration Options
 
 ### Container Options
 
-| Option     | Description                               | Default             | Required |
-|------------|-------------------------------------------|---------------------|----------|
-| Name       | Container name                            | Container file name | No       |
-| NewPath    | Path to save the encrypted container file | -                   | Yes      |
-| FolderPath | Path to the folder to be encrypted        | -                   | Yes      |
-| Passphrase | Passphrase for encrypting the container   | -                   | Yes      |
-| Comment    | Container comment                         | -                   | No       |
-| Tags       | Container tags                            | -                   | No       |
+Command: container 
+
+| Option     | Description                               | Default                     | Required | Flag         |
+|------------|-------------------------------------------|-----------------------------|----------|--------------|
+| Name       | Container name                            | Container file name         | No       | -name        |
+| NewPath    | Path to save the encrypted container file | Empty                       | Yes      | -new-path    |
+| FolderPath | Path to the folder to be encrypted        | Empty                       | Yes      | -folder-path |
+| Passphrase | Passphrase for encrypting the container   | Empty                       | Yes      | -passphrase  |
+| Comment    | Container comment                         | Empty                       | No       | -comment     |
+| Tags       | Container tags                            | created by trust vault core | No       | -tags        |
 
 ### Compression Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Type of compression to use: `zip` or `none` | `zip` | No |
+Command: compression
+
+| Option | Description                                 | Default | Required | Flag  |
+|--------|---------------------------------------------|---------|----------|-------|
+| Type   | Type of compression to use: `zip` or `none` | ZIP     | No       | -type |
 
 ### Token Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Type of token to generate: `none`, `share` or `master` | `share` | No |
+Command: token
+
+| Option | Description                                            | Default | Required | Flag  |
+|--------|--------------------------------------------------------|---------|----------|-------|
+| Type   | Type of token to generate: `none`, `share` or `master` | Share   | No       | -type |
 
 ### Token Writer Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to save tokens: `file` or `stdout` | `stdout` | No |
-| Path | Path to save tokens | - | Yes (for `file` type) |
-| Format | Format for token output: `plaintext` or `json` | `plaintext` | No |
+Command: token-writer
+
+| Option | Description                                    | Default   | Required              | Flag    |
+|--------|------------------------------------------------|-----------|-----------------------|---------|
+| Type   | Method to save tokens: `file` or `stdout`      | stdout    | No                    | -type   |
+| Path   | Path to save tokens                            | Empty     | Yes (for `file` type) | -path   |
+| Format | Format for token output: `plaintext` or `json` | plaintext | No                    | -format |
 
 ### Integrity Provider Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Type of integrity provider: `none` or `hmac` | `hmac` | No |
-| NewPassphrase | Password for the integrity provider | - | Yes (for `hmac` type) |
+Command: integrity-provider
+
+| Option        | Description                                  | Default | Required              | Flag            |
+|---------------|----------------------------------------------|---------|-----------------------|-----------------|
+| Type          | Type of integrity provider: `none` or `hmac` | hmac    | No                    | -type           |
+| NewPassphrase | Password for the integrity provider          | Empty   | Yes (for `hmac` type) | -new-passphrase |
 
 ### Shamir Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| IsEnabled | Enable Shamir's Secret Sharing | `true` | No |
-| Shares | Number of shares to generate | 5 | No |
-| Threshold | Minimum shares required to reconstruct the secret | 3 | No |
+Command: shamir
+
+| Option    | Description                                       | Default | Required                     | Flag        |
+|-----------|---------------------------------------------------|---------|------------------------------|-------------|
+| IsEnabled | Enable Shamir's Secret Sharing                    | True    | Yes (for token -type=shamir) | -is-enabled |
+| Shares    | Number of shares to generate                      | 5       | No                           | -shares     |
+| Threshold | Minimum shares required to reconstruct the secret | 3       | No                           | -threshold  |
 
 ### Log Writer Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to write logs: `file` or `stdout` | `stdout` | No |
-| Format | Format of logs: `plaintext` or `json` | `plaintext` | No |
-| Path | Path to write logs | - | Yes (for `file` type) |
+Command: log-writer
+
+| Option | Description                              | Default   | Required              | Flag    |
+|--------|------------------------------------------|-----------|-----------------------|---------|
+| Type   | Method to write logs: `file` or `stdout` | stdout    | No                    | -type   |
+| Format | Format of logs: `plaintext` or `json`    | plaintext | No                    | -format |
+| Path   | Path to write logs                       | Empty     | Yes (for `file` type) | -path   |
 
 ## Supported Token Types
 

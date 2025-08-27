@@ -189,8 +189,8 @@ container \
   -current-path="/path/to/original.tvlt" \
   -new-path="/path/to/updated.tvlt" \
   -folder-path="/path/to/new/content" \
-  -comment="your-comment" \
-  -tags="your-tag-1,your-tag-2,your-tag-3" \
+  -comment="your-current-comment, new-comment or empty" \
+  -tags="your-current-tag-1,your-current-tag-2,your-current-tag-3, new-tag-1, new-tag-2" \
 token-reader \
   -type="file" \
   -format="json" \
@@ -211,20 +211,20 @@ log-writer \
 The `container` module provides a unified format for securely storing encrypted data with comprehensive metadata. 
 It serves as the central data structure in the TVault Core system, encapsulating all encrypted content and related information.
 The container consists of several key components:
-1. **Header** - Contains essential technical information including:
+1. **Header** — Contains essential technical information including:
   - Encryption method and parameters
   - Integrity provider type
   - Token type
   - Shamir's secret sharing configuration
   - Cryptographic salt values
 
-2. **Metadata** - User-visible information about the container:
+2. **Metadata** — User-visible information about the container:
   - Creation and update timestamps
   - User comments and descriptions
   - Custom tags for organization and filtering
   - Container versioning information
 
-3. **Encrypted Payload** - The actual encrypted content
+3. **Encrypted Payload** — The actual encrypted content
 
 The container module also provides functionality to inspect and retrieve detailed information about existing containers without decrypting their contents. 
 This is useful for managing multiple containers, verifying their configuration, or retrieving metadata without accessing the protected information.
@@ -265,6 +265,15 @@ This approach provides an additional layer of security by separating the key and
 Multiple tokens using Shamir's Secret Sharing scheme.
 This method allows distributing access among multiple participants, requiring a certain number of tokens to decrypt the data.
 
+### Command
+
+```shell
+tvault seal \
+token \
+  -type="shamir" \
+# other command parameters
+```
+
 ## Integrity Verification
 
 TVault Core includes multiple integrity providers:
@@ -279,6 +288,16 @@ Requires an additional password to enhance protection.
 
 ### Ed25519 (Digital Signature)
 A promising mechanism based on the Ed25519 digital signature algorithm, providing a high level of protection against data forgery.
+
+### Command
+
+```shell
+tvault seal \
+integrity-provider \
+  -type="hmac" \
+  -new-passphrase="new-passphrase" \
+# other command parameters
+```
 
 ## Compression
 
@@ -320,6 +339,8 @@ It provides a good balance between compression ratio and processing speed.
 - **File Structure Preservation**: Fully maintains directory and file hierarchy
 - **Efficient Compression**: Offers a good balance between compressed data size and processing speed
 - **Built-in Integrity Checking**: Includes basic data integrity verification mechanisms
+
+### Command
 
 ```shell
 tvault seal \

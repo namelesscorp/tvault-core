@@ -41,40 +41,48 @@ log-writer \
 
 ### Container Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| CurrentPath | Path to the encrypted container file | - | Yes |
-| FolderPath | Path to the folder where decrypted content will be saved | - | Yes |
-| Passphrase | Passphrase for container without tokens | - | Yes (for containers without tokens) |
+Command: container
+
+| Option      | Description                                              | Default | Required                            | Flag          |
+|-------------|----------------------------------------------------------|---------|-------------------------------------|---------------|
+| CurrentPath | Path to the encrypted container file                     | Empty   | Yes                                 | -current-path |
+| FolderPath  | Path to the folder where decrypted content will be saved | Empty   | Yes                                 | -folder-path  |
+| Passphrase  | Passphrase for container without tokens                  | Empty   | Yes (for containers without tokens) | -passphrase   |
 
 ### Integrity Provider Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| CurrentPassphrase | Password for integrity verification | - | Yes (for HMAC integrity provider) |
+Command: integrity-provider
+
+| Option            | Description                         | Default | Required                          | Flag                |
+|-------------------|-------------------------------------|---------|-----------------------------------|---------------------|
+| CurrentPassphrase | Password for integrity verification | Empty   | Yes (for HMAC integrity provider) | -current-passphrase |
 
 ### Token Reader Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to read tokens: or `file``flag` | - | Yes |
-| Path | Path to read tokens from | - | Yes (for type) `file` |
-| Format | Format of tokens: `plaintext` or `json` | - | Yes |
-| Flag | Token value passed as flag | - | Yes (for type) `flag` |
+Command: token-reader
+
+| Option | Description                                      | Default | Required                  | Flag    |
+|--------|--------------------------------------------------|---------|---------------------------|---------|
+| Type   | Method to read tokens: `file`, `flag` or `stdin` | Flag    | Yes                       | -type   |
+| Path   | Path to read tokens from file                    | Empty   | Yes (for `file` type)     | -path   |
+| Format | Format of tokens: `plaintext` or `json`          | JSON    | Yes                       | -format |
+| Flag   | Token value passed as flag                       | Empty   | Yes (for `flag` type)     | -flag   |
 
 ### Log Writer Options
 
-| Option | Description | Default | Required |
-| --- | --- | --- | --- |
-| Type | Method to write logs: or `stdout` `file` | - | Yes |
-| Format | Format of logs: `plaintext` or `json` | - | Yes |
-| Path | Path to write logs to | - | Yes (for type) `file` |
+Command: log-writer
+
+| Option | Description                              | Default    | Required              | Flag    |
+|--------|------------------------------------------|------------|-----------------------|---------|
+| Type   | Method to write logs: `file` or `stdout` | stdout     | Yes                   | -type   |
+| Format | Format of logs: `plaintext` or `json`    | JSON       | Yes                   | -format |
+| Path   | Path to write logs                       | Empty      | Yes (for `file` type) | -path   |
 
 ## Token Format
 
 The unseal package supports two types of tokens:
-1. **Master Token** - A single token containing the master key
-2. **Shamir Shares** - Multiple tokens representing Shamir secret shares
+1. **Master Token** — A single token containing the master key
+2. **Shamir Shares** — Multiple tokens representing Shamir secret shares
 
 ### Plaintext Format
 

@@ -140,12 +140,12 @@ func parseSealSubcommands(args []string, options *seal.Options) (map[string]bool
 func processSealContainer(options *lib.Container, args []string) error {
 	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
 
-	options.Name = flagSet.String("name", "", "container name")
-	options.NewPath = flagSet.String("new-path", "", "new path to save container file")
-	options.FolderPath = flagSet.String("folder-path", "", "path to folder for seal")
-	options.Passphrase = flagSet.String("passphrase", "", "container passphrase")
-	options.Comment = flagSet.String("comment", "", "container comment")
-	options.Tags = flagSet.String("tags", "", "container tags")
+	options.Name = flagSet.String("name", "", "container name (not required); default: container path name")
+	options.NewPath = flagSet.String("new-path", "", "new path to save container file (required); default: empty")
+	options.FolderPath = flagSet.String("folder-path", "", "path to folder for seal (required); default: empty")
+	options.Passphrase = flagSet.String("passphrase", "", "container passphrase (required); default: empty")
+	options.Comment = flagSet.String("comment", "", "container comment (not required); default: created by trust vault core")
+	options.Tags = flagSet.String("tags", "", "container tags, comma separated (not required); default: empty)")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subContainer, err)
@@ -157,7 +157,7 @@ func processSealContainer(options *lib.Container, args []string) error {
 func processSealToken(options *lib.Token, args []string) error {
 	var flagSet = flag.NewFlagSet(subToken, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", token.TypeNameShare, "type [none | share | master]")
+	options.Type = flagSet.String("type", token.TypeNameShare, "type [none | share | master] (share required for shamir -is-enabled=true); default: share")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subToken, err)
@@ -169,7 +169,7 @@ func processSealToken(options *lib.Token, args []string) error {
 func processSealCompression(options *lib.Compression, args []string) error {
 	var flagSet = flag.NewFlagSet(subCompression, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", compression.TypeNameZip, "compression type [zip]")
+	options.Type = flagSet.String("type", compression.TypeNameZip, "compression type [zip]; default: zip")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subCompression, err)
@@ -181,8 +181,8 @@ func processSealCompression(options *lib.Compression, args []string) error {
 func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string) error {
 	var flagSet = flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", integrity.TypeNameHMAC, "type [none | hmac]")
-	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase")
+	options.Type = flagSet.String("type", integrity.TypeNameHMAC, "type [none | hmac]; default: hmac")
+	options.NewPassphrase = flagSet.String("new-passphrase", "", "new passphrase (required for -type=hmac); default: empty")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subIntegrityProvider, err)
@@ -194,9 +194,9 @@ func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string)
 func processSealShamir(options *lib.Shamir, args []string) error {
 	var flagSet = flag.NewFlagSet(subShamir, flag.ExitOnError)
 
-	options.Shares = flagSet.Int("shares", 5, "number of shares")
-	options.Threshold = flagSet.Int("threshold", 3, "threshold of shares")
-	options.IsEnabled = flagSet.Bool("is-enabled", true, "enable Shamir")
+	options.Shares = flagSet.Int("shares", 5, "number of shares (required for -is-enabled=true); default: 5")
+	options.Threshold = flagSet.Int("threshold", 3, "threshold of shares (required for -is-enabled=true); default: 3)")
+	options.IsEnabled = flagSet.Bool("is-enabled", true, "enable shamir (required for token -type=share); default: true)")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subShamir, err)
@@ -208,9 +208,9 @@ func processSealShamir(options *lib.Shamir, args []string) error {
 func processSealTokenWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subTokenWriter, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
-	options.Path = flagSet.String("path", "", "path to file")
-	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
+	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]; default: stdout")
+	options.Path = flagSet.String("path", "", "path to file (required for -type=file); default: empty")
+	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]; default: json")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subTokenWriter, err)
@@ -222,9 +222,9 @@ func processSealTokenWriter(options *lib.Writer, args []string) error {
 func processSealLogWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subLogWriter, flag.ExitOnError)
 
-	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]")
-	options.Path = flagSet.String("path", "", "path to file")
-	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]")
+	options.Type = flagSet.String("type", lib.WriterTypeStdout, "type [file | stdout]; default: stdout")
+	options.Path = flagSet.String("path", "", "path to file (required for -type=file); default: empty")
+	options.Format = flagSet.String("format", lib.WriterFormatJSON, "format [plaintext | json]; default: json")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf(lib.ErrFailedParseFlags, subLogWriter, err)

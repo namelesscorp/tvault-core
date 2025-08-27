@@ -153,7 +153,7 @@ func CreateContainer(
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 			Comment:   *containerOpts.Comment,
-			Tags:      ParseTags(*containerOpts.Tags),
+			Tags:      lib.ParseTags(*containerOpts.Tags),
 		},
 		header,
 	)
@@ -181,19 +181,6 @@ func CreateContainer(
 	var containerHeaderSalt = cont.GetHeader().Salt
 
 	return cont.GetMasterKey(), containerHeaderSalt[:], nil
-}
-
-func ParseTags(tags string) []string {
-	if tags == "" {
-		return make([]string, 0)
-	}
-
-	var tagList = strings.Split(tags, ",")
-	for i, tag := range tagList {
-		tagList[i] = strings.TrimSpace(tag)
-	}
-
-	return tagList
 }
 
 func CreateIntegrityProviderWithNewPassphrase(integrityProvider *lib.IntegrityProvider) (integrity.Provider, error) {
