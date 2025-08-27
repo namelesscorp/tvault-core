@@ -10,8 +10,8 @@ func TestPBKDF2Key(t *testing.T) {
 		name       string
 		data       []byte
 		salt       []byte
-		iterations int
-		keyLen     int
+		iterations uint32
+		keyLen     uint32
 		expected   func() []byte
 	}{
 		{
