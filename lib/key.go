@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
-	"math"
 )
 
 const (
@@ -23,19 +22,15 @@ const (
 // keyLen       - desired output length in bytes
 func PBKDF2Key(data, salt []byte, iterations, keyLen int) []byte {
 	var (
-		blocks  = (keyLen + hLen - 1) / hLen // ceil(keyLen / hLen)
-		derived = make([]byte, 0, blocks*hLen)
+		blocks   = (keyLen + hLen - 1) / hLen // ceil(keyLen / hLen)
+		derived  = make([]byte, 0, blocks*hLen)
+		blockIdx uint32
 	)
-	for blockIdx := 1; blockIdx <= blocks; blockIdx++ {
+	for blockIdx = 1; blockIdx <= uint32(blocks); blockIdx++ {
 		// U1 = HMAC(P, S || INT(blockIdx))
 		mac := hmac.New(sha256.New, data)
 		mac.Write(salt)
-
-		if blockIdx < 0 || blockIdx > math.MaxUint32 {
-			panic("block index out of range")
-		}
-
-		mac.Write(uint32ToBytes(uint32(blockIdx)))
+		mac.Write(uint32ToBytes(blockIdx))
 		ui := mac.Sum(nil)
 
 		// Ti = U1 ^ U2 ^ ... ^ Uc
