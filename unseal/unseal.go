@@ -88,7 +88,7 @@ func Unseal(opts Options) error {
 		masterKey = lib.PBKDF2Key(
 			[]byte(*opts.Container.Passphrase),
 			salt[:],
-			int(cont.GetHeader().Iterations),
+			cont.GetHeader().Iterations,
 			lib.KeyLen,
 		)
 	}

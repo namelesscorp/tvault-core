@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"os"
 
 	"github.com/namelesscorp/tvault-core/lib"
@@ -90,7 +89,7 @@ func NewContainer(
 func (c *container) Encrypt(data, key []byte) error {
 	if len(c.masterKey) == 0 || c.masterKey == nil {
 		// key derivation
-		c.masterKey = lib.PBKDF2Key(key, c.header.Salt[:], int(c.header.Iterations), lib.KeyLen)
+		c.masterKey = lib.PBKDF2Key(key, c.header.Salt[:], c.header.Iterations, lib.KeyLen)
 	}
 
 	// seal plaintext
@@ -160,16 +159,6 @@ func (c *container) Write() error {
 			lib.ErrMessageJSONMarshalMetadataError,
 			"",
 			err,
-		)
-	}
-
-	if len(metaBytes) > math.MaxUint32 {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeMetadataSizeExceedsError,
-			lib.ErrMessageMetadataSizeExceedsError,
-			"",
-			nil,
 		)
 	}
 

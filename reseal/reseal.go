@@ -110,7 +110,7 @@ func Reseal(opts Options) error {
 		masterKey = lib.PBKDF2Key(
 			[]byte(*opts.Container.Passphrase),
 			salt[:],
-			int(currentContainer.GetHeader().Iterations),
+			currentContainer.GetHeader().Iterations,
 			lib.KeyLen,
 		)
 	}

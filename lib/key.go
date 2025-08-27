@@ -20,13 +20,11 @@ const (
 // salt.        - 16‑byte random value stored in header
 // iterations   - cost factor (>= 100k recommended)
 // keyLen       - desired output length in bytes
-func PBKDF2Key(data, salt []byte, iterations, keyLen int) []byte {
-	var (
-		blocks   = (keyLen + hLen - 1) / hLen // ceil(keyLen / hLen)
-		derived  = make([]byte, 0, blocks*hLen)
-		blockIdx uint32
-	)
-	for blockIdx = 1; blockIdx <= uint32(blocks); blockIdx++ {
+func PBKDF2Key(data, salt []byte, iterations, keyLen uint32) []byte {
+	blocks := (keyLen + hLen - 1) / hLen // ceil(keyLen / hLen)
+	derived := make([]byte, 0, blocks*hLen)
+
+	for blockIdx := uint32(1); blockIdx <= blocks; blockIdx++ {
 		// U1 = HMAC(P, S || INT(blockIdx))
 		mac := hmac.New(sha256.New, data)
 		mac.Write(salt)
@@ -37,7 +35,7 @@ func PBKDF2Key(data, salt []byte, iterations, keyLen int) []byte {
 		ti := make([]byte, hLen)
 		copy(ti, ui)
 
-		for i := 1; i < iterations; i++ {
+		for i := uint32(1); i < iterations; i++ {
 			mac.Reset()
 			mac.Write(ui)
 			ui = mac.Sum(nil)
