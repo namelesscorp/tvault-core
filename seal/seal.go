@@ -15,13 +15,14 @@ import (
 	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/integrity/hmac"
 	"github.com/namelesscorp/tvault-core/lib"
+	"github.com/namelesscorp/tvault-core/security"
 	"github.com/namelesscorp/tvault-core/shamir"
 	"github.com/namelesscorp/tvault-core/token"
 )
 
 // Seal - creates a secure container by compressing a folder, encrypting the data, and saving cryptographic tokens.
 func Seal(options Options) error {
-	data, compID, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
+	comp, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
 	if err != nil {
 		return lib.InternalErr(
 			lib.CategorySeal,
@@ -33,12 +34,12 @@ func Seal(options Options) error {
 	}
 
 	masterKey, containerSalt, err := CreateContainer(
-		data,
-		compID,
+		comp,
 		integrity.ConvertNameToID(*options.IntegrityProvider.Type),
 		token.ConvertNameToID(*options.Token.Type),
 		options.Container,
 		options.Shamir,
+		*options.IntegrityProvider.NewPassphrase,
 	)
 	if err != nil {
 		return lib.InternalErr(
@@ -89,13 +90,13 @@ func Seal(options Options) error {
 	return nil
 }
 
-func CompressFolder(compressionType, folderPath string) ([]byte, byte, error) {
+func CompressFolder(compressionType, folderPath string) (compression.Compression, error) {
 	switch compressionType {
 	case compression.TypeNameZip:
 		var comp = zip.New()
-		data, err := comp.Pack(folderPath)
+		_, err := comp.Pack(folderPath)
 		if err != nil {
-			return nil, 0, lib.IOErr(
+			return nil, lib.IOErr(
 				lib.CategorySeal,
 				lib.ErrCodeSealCompressionPackError,
 				lib.ErrMessageSealCompressionPackError,
@@ -104,22 +105,22 @@ func CompressFolder(compressionType, folderPath string) ([]byte, byte, error) {
 			)
 		}
 
-		return data, comp.ID(), nil
+		return comp, nil
 	case compression.TypeNameNone:
-		return nil, 0, lib.ErrNoneCompressionUnimplemented
+		return nil, lib.ErrNoneCompressionUnimplemented
 	default:
-		return nil, 0, lib.ErrUnknownCompressionType
+		return nil, lib.ErrUnknownCompressionType
 	}
 }
 
 func CreateContainer(
-	data []byte,
-	compressionID, integrityProviderID, tokenID byte,
+	comp compression.Compression, integrityProviderID, tokenID byte,
 	containerOpts *lib.Container,
 	shamir *lib.Shamir,
+	integrityProviderPassphrase string,
 ) ([]byte, []byte, error) {
 	header, err := container.NewHeader(
-		compressionID,
+		comp.ID(),
 		integrityProviderID,
 		tokenID,
 		uint8(*shamir.Shares),    // #nosec G115
@@ -145,20 +146,35 @@ func CreateContainer(
 		}
 	}
 
+	secScore := security.New(security.Params{
+		TokenType:                   token.ConvertIDToName(tokenID),
+		IntegrityProviderType:       integrity.ConvertIDToName(integrityProviderID),
+		CompressionType:             compression.ConvertIDToName(comp.ID()),
+		NumberOfShares:              *shamir.Shares,
+		NumberOfThreshold:           *shamir.Threshold,
+		ContainerPassphrase:         *containerOpts.Passphrase,
+		IntegrityProviderPassphrase: integrityProviderPassphrase,
+		FileNameList:                comp.GetFileNameList(),
+	})
+
 	cont := container.NewContainer(
 		*containerOpts.NewPath,
 		nil,
 		container.Metadata{
-			Name:      containerName,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			Comment:   *containerOpts.Comment,
-			Tags:      lib.ParseTags(*containerOpts.Tags),
+			Name:             containerName,
+			CreatedAt:        time.Now(),
+			UpdatedAt:        time.Now(),
+			Comment:          *containerOpts.Comment,
+			Tags:             lib.ParseTags(*containerOpts.Tags),
+			CompressedSize:   comp.GetCompressedSize(),
+			UncompressedSize: comp.GetUncompressedSize(),
+			FileCount:        comp.GetFileCount(),
+			SecurityScore:    secScore.Calculate(),
 		},
 		header,
 	)
 
-	if err = cont.Encrypt(data, []byte(*containerOpts.Passphrase)); err != nil {
+	if err = cont.Encrypt(comp.GetCompressedData(), []byte(*containerOpts.Passphrase)); err != nil {
 		return nil, nil, lib.CryptoErr(
 			lib.CategorySeal,
 			lib.ErrCodeSealEncryptContainerError,

@@ -10,6 +10,7 @@ import (
 	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/seal"
+	"github.com/namelesscorp/tvault-core/security"
 	"github.com/namelesscorp/tvault-core/shamir"
 	"github.com/namelesscorp/tvault-core/token"
 	"github.com/namelesscorp/tvault-core/unseal"
@@ -47,14 +48,6 @@ func Reseal(opts Options) error {
 	if *opts.Container.Name == "" {
 		containerName = currentContainer.GetMetadata().Name
 	}
-
-	currentContainer.SetMetadata(container.Metadata{
-		Name:      containerName,
-		CreatedAt: currentContainer.GetMetadata().CreatedAt,
-		UpdatedAt: time.Now(),
-		Comment:   comment,
-		Tags:      tags,
-	})
 
 	var masterKey []byte
 	switch currentContainer.GetHeader().TokenType {
@@ -115,7 +108,7 @@ func Reseal(opts Options) error {
 		)
 	}
 
-	data, _, err := seal.CompressFolder(
+	comp, err := seal.CompressFolder(
 		compression.ConvertIDToName(currentContainer.GetHeader().CompressionType),
 		*opts.Container.FolderPath,
 	)
@@ -129,8 +122,32 @@ func Reseal(opts Options) error {
 		)
 	}
 
+	secScore := security.New(security.Params{
+		TokenType:                   token.ConvertIDToName(currentContainer.GetHeader().TokenType),
+		IntegrityProviderType:       integrity.ConvertIDToName(currentContainer.GetHeader().IntegrityProviderType),
+		CompressionType:             compression.ConvertIDToName(currentContainer.GetHeader().CompressionType),
+		NumberOfShares:              int(currentContainer.GetHeader().Shares),
+		NumberOfThreshold:           int(currentContainer.GetHeader().Threshold),
+		ContainerPassphrase:         *opts.Container.Passphrase,
+		IntegrityProviderPassphrase: *getIntegrityProviderPassphrasePtr(opts.IntegrityProvider),
+		FileNameList:                comp.GetFileNameList(),
+	})
+
+	currentContainer.SetMetadata(container.Metadata{
+		Name:             containerName,
+		CreatedAt:        currentContainer.GetMetadata().CreatedAt,
+		UpdatedAt:        time.Now(),
+		Comment:          comment,
+		Tags:             tags,
+		CompressedSize:   comp.GetCompressedSize(),
+		UncompressedSize: comp.GetUncompressedSize(),
+		FileCount:        comp.GetFileCount(),
+		SecurityScore:    secScore.Calculate(),
+	})
+
 	currentContainer.SetMasterKey(masterKey)
-	if err = currentContainer.Encrypt(data, nil); err != nil {
+
+	if err = currentContainer.Encrypt(comp.GetCompressedData(), nil); err != nil {
 		return lib.InternalErr(
 			lib.CategoryReseal,
 			lib.ErrCodeResealEncryptContainerError,

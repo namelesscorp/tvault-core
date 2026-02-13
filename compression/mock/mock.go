@@ -22,3 +22,19 @@ func (c *Compression) Unpack(_ []byte, _ string) error {
 func (c *Compression) ID() byte {
 	return byte(c.CompressionID)
 }
+
+func (c *Compression) GetUncompressedSize() int64 {
+	return 0
+}
+
+func (c *Compression) GetCompressedSize() int64 {
+	return 0
+}
+
+func (c *Compression) GetCompressedData() []byte {
+	return c.PackContent
+}
+
+func (c *Compression) GetFileCount() int64 {
+	return 0
+}
