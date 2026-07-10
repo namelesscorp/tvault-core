@@ -75,7 +75,7 @@ func Info(opts Options) error {
 			strings.Join(cont.GetMetadata().Tags, ","),
 			token.ConvertIDToName(cont.GetHeader().TokenType),
 			integrity.ConvertIDToName(cont.GetHeader().IntegrityProviderType),
-			integrity.ConvertIDToName(cont.GetHeader().CompressionType),
+			compression.ConvertIDToName(cont.GetHeader().CompressionType),
 			cont.GetHeader().Shares,
 			cont.GetHeader().Threshold,
 			cont.GetMetadata().CompressedSize,

@@ -2,10 +2,12 @@ package reseal
 
 import (
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/namelesscorp/tvault-core/compression"
+	"github.com/namelesscorp/tvault-core/compression/zip"
 	"github.com/namelesscorp/tvault-core/container"
 	"github.com/namelesscorp/tvault-core/integrity"
 	"github.com/namelesscorp/tvault-core/lib"
@@ -15,6 +17,12 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 	"github.com/namelesscorp/tvault-core/unseal"
 )
+
+type compressedArtifact struct {
+	Comp    compression.Compression
+	ZipPath string
+	ZipSize int64
+}
 
 // Reseal - processes a sealed container by decrypting, modifying, and re-encrypting it with updated metadata and tokens.
 func Reseal(opts Options) error {
@@ -108,7 +116,7 @@ func Reseal(opts Options) error {
 		)
 	}
 
-	comp, err := seal.CompressFolder(
+	artifact, err := compressFolderForReseal(
 		compression.ConvertIDToName(currentContainer.GetHeader().CompressionType),
 		*opts.Container.FolderPath,
 	)
@@ -121,6 +129,7 @@ func Reseal(opts Options) error {
 			err,
 		)
 	}
+	defer func() { _ = os.Remove(artifact.ZipPath) }()
 
 	secScore := security.New(security.Params{
 		TokenType:                   token.ConvertIDToName(currentContainer.GetHeader().TokenType),
@@ -130,7 +139,7 @@ func Reseal(opts Options) error {
 		NumberOfThreshold:           int(currentContainer.GetHeader().Threshold),
 		ContainerPassphrase:         *opts.Container.Passphrase,
 		IntegrityProviderPassphrase: *getIntegrityProviderPassphrasePtr(opts.IntegrityProvider),
-		FileNameList:                comp.GetFileNameList(),
+		FileNameList:                artifact.Comp.GetFileNameList(),
 	})
 
 	currentContainer.SetMetadata(container.Metadata{
@@ -139,33 +148,25 @@ func Reseal(opts Options) error {
 		UpdatedAt:        time.Now(),
 		Comment:          comment,
 		Tags:             tags,
-		CompressedSize:   comp.GetCompressedSize(),
-		UncompressedSize: comp.GetUncompressedSize(),
-		FileCount:        comp.GetFileCount(),
+		CompressedSize:   artifact.ZipSize,
+		UncompressedSize: artifact.Comp.GetUncompressedSize(),
+		FileCount:        artifact.Comp.GetFileCount(),
 		SecurityScore:    secScore.Calculate(),
 	})
 
 	currentContainer.SetMasterKey(masterKey)
 
-	if err = currentContainer.Encrypt(comp.GetCompressedData(), nil); err != nil {
-		return lib.InternalErr(
-			lib.CategoryReseal,
-			lib.ErrCodeResealEncryptContainerError,
-			lib.ErrMessageResealEncryptContainerError,
-			"",
-			err,
-		)
-	}
-
+	currentContainer.SetMasterKey(masterKey)
 	currentContainer.SetPath(getContainerPath(opts.Container))
-	if err = currentContainer.Write(); err != nil {
-		return lib.InternalErr(
-			lib.CategoryReseal,
-			lib.ErrCodeResealWriteContainerError,
-			lib.ErrMessageResealWriteContainerError,
-			"",
-			err,
-		)
+
+	zf, err := os.Open(artifact.ZipPath)
+	if err != nil {
+		return lib.IOErr(lib.CategoryReseal, lib.ErrCodeResealEncryptContainerError, lib.ErrMessageResealEncryptContainerError, "", err)
+	}
+	defer func() { _ = zf.Close() }()
+
+	if err = currentContainer.WriteEncrypted(zf, nil); err != nil {
+		return lib.InternalErr(lib.CategoryReseal, lib.ErrCodeResealEncryptContainerError, lib.ErrMessageResealEncryptContainerError, "", err)
 	}
 
 	if currentContainer.GetHeader().TokenType == token.TypeNone {
@@ -221,6 +222,39 @@ func Reseal(opts Options) error {
 	}
 
 	return nil
+}
+
+func compressFolderForReseal(compressionType, folderPath string) (*compressedArtifact, error) {
+	switch compressionType {
+	case compression.TypeNameZip:
+		comp := zip.New()
+
+		tmp, err := os.CreateTemp("", "tvault-zip-*.zip")
+		if err != nil {
+			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
+		}
+		tmpPath := tmp.Name()
+
+		if err := comp.PackTo(folderPath, tmp); err != nil {
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
+			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
+		}
+		if err := tmp.Close(); err != nil {
+			_ = os.Remove(tmpPath)
+			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
+		}
+
+		st, err := os.Stat(tmpPath)
+		if err != nil {
+			_ = os.Remove(tmpPath)
+			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
+		}
+
+		return &compressedArtifact{Comp: comp, ZipPath: tmpPath, ZipSize: st.Size()}, nil
+	default:
+		return nil, lib.ErrUnknownCompressionType
+	}
 }
 
 func getContainerPath(containerOpts *lib.Container) string {

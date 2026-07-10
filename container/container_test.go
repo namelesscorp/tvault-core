@@ -48,18 +48,13 @@ func TestContainer(t *testing.T) {
 			t.Errorf("Expected Comment to be %s, got %s", "Test comment", cont.GetMetadata().Comment)
 		}
 
-		err = cont.Encrypt(testData, passphrase)
+		err = cont.WriteEncrypted(bytes.NewReader(testData), passphrase)
 		if err != nil {
-			t.Fatalf("Failed to encrypt data: %v", err)
+			t.Fatalf("Failed to write encrypted data: %v", err)
 		}
 
-		if len(cont.GetCipherData()) == 0 {
-			t.Errorf("Expected cipherData to be non-empty")
-		}
-
-		err = cont.Write()
-		if err != nil {
-			t.Fatalf("Failed to write container: %v", err)
+		if len(cont.GetMasterKey()) == 0 {
+			t.Errorf("Expected master key to be non-empty")
 		}
 
 		readContainer := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
@@ -81,13 +76,14 @@ func TestContainer(t *testing.T) {
 			t.Errorf("Expected Comment to be %s, got %s", "Test comment", readContainer.GetMetadata().Comment)
 		}
 
-		err = readContainer.Decrypt(cont.GetMasterKey())
+		var decrypted bytes.Buffer
+		err = readContainer.DecryptTo(&decrypted, cont.GetMasterKey())
 		if err != nil {
 			t.Fatalf("Failed to decrypt data: %v", err)
 		}
 
-		if !bytes.Equal(readContainer.GetData(), testData) {
-			t.Errorf("Expected decrypted data to be %v, got %v", testData, readContainer.GetData())
+		if !bytes.Equal(decrypted.Bytes(), testData) {
+			t.Errorf("Expected decrypted data to be %v, got %v", testData, decrypted.Bytes())
 		}
 	})
 

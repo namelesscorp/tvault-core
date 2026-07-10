@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 
-	"github.com/namelesscorp/tvault-core/compression"
 	"github.com/namelesscorp/tvault-core/compression/zip"
 	"github.com/namelesscorp/tvault-core/container"
 	"github.com/namelesscorp/tvault-core/integrity"
@@ -93,24 +93,38 @@ func Unseal(opts Options) error {
 		)
 	}
 
-	if err := cont.Decrypt(masterKey); err != nil {
-		return lib.InternalErr(
-			lib.CategoryUnseal,
-			lib.ErrCodeUnsealContainerError,
-			lib.ErrMessageUnsealContainerError,
-			"",
-			err,
-		)
+	tmp, err := os.CreateTemp("", "tvault-unseal-*.zip")
+	if err != nil {
+		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
 	}
 
-	if err := unpackContent(cont.GetData(), *opts.Container.FolderPath, cont.GetHeader().CompressionType); err != nil {
-		return lib.InternalErr(
-			lib.CategoryUnseal,
-			lib.ErrCodeUnsealUnpackContentError,
-			lib.ErrMessageUnsealUnpackContentError,
-			"",
-			err,
-		)
+	tmpPath := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
+
+	if err := cont.DecryptTo(tmp, masterKey); err != nil {
+		return lib.InternalErr(lib.CategoryUnseal, lib.ErrCodeUnsealContainerError, lib.ErrMessageUnsealContainerError, "", err)
+	}
+
+	if err := tmp.Close(); err != nil {
+		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
+	}
+
+	zf, err := os.Open(tmpPath)
+	if err != nil {
+		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
+	}
+	defer func() { _ = zf.Close() }()
+
+	st, err := zf.Stat()
+	if err != nil {
+		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
+	}
+
+	if err := zip.New().UnpackFrom(zf, st.Size(), *opts.Container.FolderPath); err != nil {
+		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealCompressionUnpackError, lib.ErrMessageUnsealCompressionUnpackError, "", err)
 	}
 
 	return nil
@@ -295,26 +309,5 @@ func createIntegrityProvider(providerID byte, addPwd []byte) (integrity.Provider
 		return nil, lib.ErrEd25519Unimplemented
 	default:
 		return nil, lib.ErrUnknownIntegrityProvider
-	}
-}
-
-func unpackContent(content []byte, folderPath string, compressionType byte) error {
-	switch compressionType {
-	case compression.TypeZip:
-		if err := zip.New().Unpack(content, folderPath); err != nil {
-			return lib.IOErr(
-				lib.CategoryUnseal,
-				lib.ErrCodeUnsealCompressionUnpackError,
-				lib.ErrMessageUnsealCompressionUnpackError,
-				"",
-				err,
-			)
-		}
-
-		return nil
-	case compression.TypeNone:
-		return lib.ErrNoneCompressionUnimplemented
-	default:
-		return lib.ErrUnknownCompressionType
 	}
 }

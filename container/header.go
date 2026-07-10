@@ -13,7 +13,7 @@ const (
 	// Version container version for backward compatibility
 	Version = 1
 
-	ChunkSize = 4 * 1024 * 1024 // 4 MiB
+	ChunkSize = 16 * 1024 * 1024 // 16 MiB
 )
 
 type Header struct {

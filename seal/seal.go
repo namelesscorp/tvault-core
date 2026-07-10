@@ -5,7 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,9 +23,15 @@ import (
 	"github.com/namelesscorp/tvault-core/token"
 )
 
-// Seal - creates a secure container by compressing a folder, encrypting the data, and saving cryptographic tokens.
+// Seal - seal container by options
+// - select compressor
+// - create container
+// - select token type
+// create master token or share tokens
+// - select and create integrity provider
+// - derive passphrase
 func Seal(options Options) error {
-	comp, err := CompressFolder(*options.Compression.Type, *options.Container.FolderPath)
+	comp, err := newCompressor(*options.Compression.Type)
 	if err != nil {
 		return lib.InternalErr(
 			lib.CategorySeal,
@@ -40,6 +49,7 @@ func Seal(options Options) error {
 		options.Container,
 		options.Shamir,
 		*options.IntegrityProvider.NewPassphrase,
+		*options.Container.FolderPath,
 	)
 	if err != nil {
 		return lib.InternalErr(
@@ -90,22 +100,11 @@ func Seal(options Options) error {
 	return nil
 }
 
-func CompressFolder(compressionType, folderPath string) (compression.Compression, error) {
+// newCompressor - select compressor instance by type
+func newCompressor(compressionType string) (compression.Compression, error) {
 	switch compressionType {
 	case compression.TypeNameZip:
-		var comp = zip.New()
-		_, err := comp.Pack(folderPath)
-		if err != nil {
-			return nil, lib.IOErr(
-				lib.CategorySeal,
-				lib.ErrCodeSealCompressionPackError,
-				lib.ErrMessageSealCompressionPackError,
-				"",
-				err,
-			)
-		}
-
-		return comp, nil
+		return zip.New(), nil
 	case compression.TypeNameNone:
 		return nil, lib.ErrNoneCompressionUnimplemented
 	default:
@@ -113,11 +112,21 @@ func CompressFolder(compressionType, folderPath string) (compression.Compression
 	}
 }
 
+// CreateContainer - create container file and return master key
+// - init container header
+// - select container name
+// - get encrypted folder stats
+// - create security score instance
+// - calculate security score
+// - create container instance with metadata
+// - pack files to container
 func CreateContainer(
-	comp compression.Compression, integrityProviderID, tokenID byte,
+	comp compression.Compression,
+	integrityProviderID, tokenID byte,
 	containerOpts *lib.Container,
 	shamir *lib.Shamir,
 	integrityProviderPassphrase string,
+	folderPath string,
 ) ([]byte, []byte, error) {
 	header, err := container.NewHeader(
 		comp.ID(),
@@ -146,6 +155,17 @@ func CreateContainer(
 		}
 	}
 
+	uncompressedSize, fileCount, fileNameList, err := collectFolderStats(folderPath)
+	if err != nil {
+		return nil, nil, lib.IOErr(
+			lib.CategorySeal,
+			lib.ErrCodeSealCompressionPackError,
+			lib.ErrMessageSealCompressionPackError,
+			"",
+			err,
+		)
+	}
+
 	secScore := security.New(security.Params{
 		TokenType:                   token.ConvertIDToName(tokenID),
 		IntegrityProviderType:       integrity.ConvertIDToName(integrityProviderID),
@@ -154,7 +174,7 @@ func CreateContainer(
 		NumberOfThreshold:           *shamir.Threshold,
 		ContainerPassphrase:         *containerOpts.Passphrase,
 		IntegrityProviderPassphrase: integrityProviderPassphrase,
-		FileNameList:                comp.GetFileNameList(),
+		FileNameList:                fileNameList,
 	})
 
 	cont := container.NewContainer(
@@ -166,15 +186,34 @@ func CreateContainer(
 			UpdatedAt:        time.Now(),
 			Comment:          *containerOpts.Comment,
 			Tags:             lib.ParseTags(*containerOpts.Tags),
-			CompressedSize:   comp.GetCompressedSize(),
-			UncompressedSize: comp.GetUncompressedSize(),
-			FileCount:        comp.GetFileCount(),
+			CompressedSize:   -1,
+			UncompressedSize: uncompressedSize,
+			FileCount:        fileCount,
 			SecurityScore:    secScore.Calculate(),
 		},
 		header,
 	)
 
-	if err = cont.Encrypt(comp.GetCompressedData(), []byte(*containerOpts.Passphrase)); err != nil {
+	pr, pw := io.Pipe()
+	packErrCh := make(chan error, 1)
+
+	go func() {
+		defer func() { _ = pw.Close() }()
+
+		if err := comp.PackTo(folderPath, pw); err != nil {
+			_ = pw.CloseWithError(err)
+			packErrCh <- err
+
+			return
+		}
+
+		packErrCh <- nil
+	}()
+
+	if err = cont.WriteEncrypted(pr, []byte(*containerOpts.Passphrase)); err != nil {
+		_ = pr.Close()
+		_ = <-packErrCh
+
 		return nil, nil, lib.CryptoErr(
 			lib.CategorySeal,
 			lib.ErrCodeSealEncryptContainerError,
@@ -184,21 +223,65 @@ func CreateContainer(
 		)
 	}
 
-	if err = cont.Write(); err != nil {
+	if packErr := <-packErrCh; packErr != nil {
 		return nil, nil, lib.IOErr(
 			lib.CategorySeal,
-			lib.ErrCodeSealWriteContainerError,
-			lib.ErrMessageSealWriteContainerError,
+			lib.ErrCodeSealCompressionPackError,
+			lib.ErrMessageSealCompressionPackError,
 			"",
-			err,
+			packErr,
 		)
 	}
 
 	var containerHeaderSalt = cont.GetHeader().Salt
-
 	return cont.GetMasterKey(), containerHeaderSalt[:], nil
 }
 
+// collectFolderStats - get file count, uncompressed size, file name list
+func collectFolderStats(folder string) (uncompressedSize int64, fileCount int64, fileNameList []string, err error) {
+	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, walkErr error) error {
+		switch {
+		case walkErr != nil:
+			return walkErr
+		case d.IsDir():
+			return nil
+		}
+
+		fi, infoErr := d.Info()
+		if infoErr != nil {
+			return infoErr
+		}
+
+		mode := fi.Mode()
+
+		if mode&os.ModeSymlink != 0 {
+			target, readlinkErr := os.Readlink(path)
+			if readlinkErr != nil {
+				return readlinkErr
+			}
+
+			uncompressedSize += int64(len(target))
+			fileCount++
+			fileNameList = append(fileNameList, fi.Name())
+
+			return nil
+		}
+
+		if !mode.IsRegular() {
+			return nil
+		}
+
+		uncompressedSize += fi.Size()
+		fileCount++
+		fileNameList = append(fileNameList, fi.Name())
+
+		return nil
+	})
+
+	return uncompressedSize, fileCount, fileNameList, err
+}
+
+// CreateIntegrityProviderWithNewPassphrase - creates a new integrity provider based on the specified type and new passphrase.
 func CreateIntegrityProviderWithNewPassphrase(integrityProvider *lib.IntegrityProvider) (integrity.Provider, error) {
 	switch *integrityProvider.Type {
 	case integrity.TypeNameNone:
@@ -212,6 +295,10 @@ func CreateIntegrityProviderWithNewPassphrase(integrityProvider *lib.IntegrityPr
 	}
 }
 
+// DeriveIntegrityProviderNewPassphrase - derives a new passphrase for the integrity provider using PBKDF2-HMAC-SHA256.
+// It takes an IntegrityProvider object and a salt as input and returns the derived key or an error.
+// If the IntegrityProvider's new passphrase is set and the type is HMAC, a PBKDF2-based key is generated.
+// Returns nil if the conditions for key derivation are not met.
 func DeriveIntegrityProviderNewPassphrase(integrityProvider *lib.IntegrityProvider, salt []byte) ([]byte, error) {
 	if *integrityProvider.NewPassphrase != "" && *integrityProvider.Type == integrity.TypeNameHMAC {
 		return lib.PBKDF2Key(

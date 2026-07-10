@@ -54,20 +54,23 @@ log-writer \
 
 ```json
 {
-  "name": "vault",
+  "name": "hello",
   "version": 1,
-  "created_at": "2025-08-08 04:56:21",
-  "updated_at": "2025-08-08 04:56:21",
-  "comment": "pictures from vacation",
+  "created_at": "2026-07-10 21:41:04",
+  "updated_at": "2026-07-10 21:41:04",
+  "comment": "created by trust vault core",
   "tags": [
-    "photos",
-    "documents"
+    "docs"
   ],
   "token_type": "share",
   "integrity_provider_type": "hmac",
   "compression_type": "zip",
   "shares": 5,
-  "threshold": 3
+  "threshold": 3,
+  "file_count": 2,
+  "compressed_size": -1,
+  "uncompressed_size": 6152,
+  "security_score": 0.65
 }
 ```
 

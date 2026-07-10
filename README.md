@@ -46,7 +46,7 @@ The system supports multiple mechanisms for storing and distributing encryption 
 - **Robust Data Protection**: Using the AES-256 standard for encryption
 - **Directory Structure Preservation**: Complete preservation of file hierarchy during encryption
 - **Built-in Compression**: Reduction of encrypted container size
-- **Container Metadata**: Storage of creation time, update information, and user comments
+- **Container Metadata**: Storage of creation time, update information, user comments, etc.
 
 ### Advanced Key Management
 
@@ -75,6 +75,7 @@ The system supports multiple mechanisms for storing and distributing encryption 
 - **HMAC Integrity Verification**: Prevents tampering with encrypted data
 - **Distributed Key Management**: Split keys using Shamir's Secret Sharing
 - **Multiple Token Formats**: Support for different token storage methods
+- **Security Score**: Comprehensive evaluation of security measures
 
 ## Installation
 
@@ -223,6 +224,9 @@ The container consists of several key components:
   - User comments and descriptions
   - Custom tags for organization and filtering
   - Container versioning information
+  - Security score
+  - File count in container
+  - Compressed and uncompressed container sizes
 
 3. **Encrypted Payload** — The actual encrypted content
 
