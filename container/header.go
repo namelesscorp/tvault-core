@@ -14,6 +14,14 @@ const (
 	Version = 1
 
 	ChunkSize = 16 * 1024 * 1024 // 16 MiB
+
+	// MaxMetadataSize is the upper bound on the plaintext metadata length
+	// accepted when reading a container. The metadata is a small JSON struct,
+	// so 1 MiB is far more than any legitimate container needs. The cap
+	// prevents a hostile header from forcing a multi-gigabyte allocation
+	// (MetadataSize is an attacker-controlled uint32) before the bytes are
+	// ever read from disk.
+	MaxMetadataSize = 1 * 1024 * 1024 // 1 MiB
 )
 
 type Header struct {

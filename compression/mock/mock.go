@@ -20,7 +20,8 @@ func (c *Compression) Unpack(_ []byte, _ string) error {
 }
 
 func (c *Compression) ID() byte {
-	return byte(c.CompressionID)
+	// CompressionID is a test-controlled value in this mock, so the conversion is safe.
+	return byte(c.CompressionID) // #nosec G115
 }
 
 func (c *Compression) GetUncompressedSize() int64 {

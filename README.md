@@ -118,7 +118,7 @@ The sealing process includes:
 
 
 ```shell
-tvault seal \
+tvault-core seal \
 container \
   -name="container-name" \
   -new-path="/path/to/output.tvlt" \
@@ -160,7 +160,7 @@ The unsealing process includes:
 
 
 ```shell
-tvault unseal \
+tvault-core unseal \
 container \
   -current-path="/path/to/container.tvlt" \
   -folder-path="/path/to/output" \
@@ -189,7 +189,7 @@ The resealing process includes:
 5. Generating new tokens with the same cryptographic key
 
 ```shell
-tvault reseal \
+tvault-core reseal \
 container \
   -name="new-container-name" \
   -current-path="/path/to/original.tvlt" \
@@ -248,8 +248,8 @@ The container information retrieval process:
 Container info can be retrieved using the CLI:
 
 ```shell
-tvault container \
-info
+tvault-core container \
+info \
   -path="/path/to/original.tvlt" \
 info-writer \
   -type="file" \
@@ -285,9 +285,9 @@ This method allows distributing access among multiple participants, requiring a 
 ### Command
 
 ```shell
-tvault seal \
+tvault-core seal \
 token \
-  -type="shamir" \
+  -type="share" \
 # other command parameters
 ```
 
@@ -309,7 +309,7 @@ A promising mechanism based on the Ed25519 digital signature algorithm, providin
 ### Command
 
 ```shell
-tvault seal \
+tvault-core seal \
 integrity-provider \
   -type="hmac" \
   -new-passphrase="new-passphrase" \
@@ -360,7 +360,7 @@ It provides a good balance between compression ratio and processing speed.
 ### Command
 
 ```shell
-tvault seal \
+tvault-core seal \
 compression \
   -type="zip" \
 # other command parameters
@@ -379,6 +379,8 @@ compression \
 ## Contributing
 We welcome contributions to the project. 
 Detailed information about the development process, commit formatting, and creating merge requests can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Developer documentation: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ## License
 TVault Core is proprietary software. 

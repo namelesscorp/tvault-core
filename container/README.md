@@ -24,8 +24,15 @@ The container file format is a binary format with the following structure (all f
 | 0x29   | 4    | Metadata length          | Size of metadata block     |
 | 0x2D   | 1    | Shares                   | Number of Shamir shares    |
 | 0x2E   | 1    | Threshold                | Minimum shares threshold   |
-| 0x2F   | N    | JSON metadata            | Plaintext metadata         |
-| 0x2F+N | ...  | Ciphertext + 16-byte tag | Encrypted data + GCM tag   |
+| 0x2F   | 4    | Chunk size               | Plaintext chunk size (B)   |
+| 0x33   | N    | JSON metadata            | Plaintext metadata         |
+| 0x33+N | ...  | Chunked ciphertext       | Length-prefixed GCM chunks |
+
+The payload is not a single ciphertext blob: it is a sequence of AES-GCM
+chunks, each written as a little-endian `uint32` plaintext length followed by
+the chunk ciphertext and its 16-byte GCM tag. A terminating `uint32(0)` length
+marks the end of the stream. Each chunk reuses the base `Nonce` with a per-chunk
+counter written into bytes `nonce[4:]`.
 
 ## Key Requirements
 

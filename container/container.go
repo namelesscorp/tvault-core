@@ -18,9 +18,15 @@ package container
 // | 0x29   | 4	  | metadata length						        |
 // | 0x2D   | 1	  | shares								        |
 // | 0x2E   | 1	  | threshold							        |
-// | 0x2F   | N	  | metadata JSON (plaintext)			        |
-// | 0x2F+N | ... | ciphertext + 16-byte GCM tag		        |
+// | 0x2F   | 4	  | chunk size (plaintext bytes)			        |
+// | 0x33   | N	  | metadata JSON (plaintext)			        |
+// | 0x33+N | ... | length-prefixed AES-GCM chunks		        |
 // +--------+-------+-------------------------------------------+
+//
+// The payload is a sequence of chunks, each a little-endian uint32 plaintext
+// length followed by that chunk's ciphertext + 16-byte GCM tag, terminated by
+// a uint32(0) length. Each chunk reuses the base nonce with a per-chunk
+// counter in bytes nonce[4:].
 //
 
 import (
@@ -44,10 +50,8 @@ type (
 		Read() error
 		DecryptTo(w io.Writer, masterKey []byte) error
 
-		GetCipherData() []byte
 		GetHeader() Header
 		GetMetadata() Metadata
-		GetData() []byte
 		GetMasterKey() []byte
 
 		SetPath(path string)
@@ -56,12 +60,10 @@ type (
 	}
 
 	container struct {
-		path       string
-		cipherData []byte
-		data       []byte
-		header     Header
-		metadata   Metadata
-		masterKey  []byte
+		path      string
+		header    Header
+		metadata  Metadata
+		masterKey []byte
 	}
 )
 
@@ -168,6 +170,13 @@ func (c *container) WriteEncrypted(r io.Reader, key []byte) error {
 		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteCipherTextError, lib.ErrMessageWriteCipherTextError, "", err)
 	}
 
+	// Flush the file contents to stable storage before returning so a subsequent
+	// atomic rename cannot expose a container whose data was lost to a power
+	// failure still sitting in the OS page cache.
+	if err := f.Sync(); err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeContainerSyncFileError, lib.ErrMessageContainerSyncFileError, "", err)
+	}
+
 	return nil
 }
 
@@ -195,6 +204,10 @@ func (c *container) Read() error {
 	}
 	if c.header.Version != Version {
 		return lib.ErrInvalidContainerVersion
+	}
+
+	if c.header.MetadataSize > MaxMetadataSize {
+		return lib.FormatErr(lib.CategoryContainer, lib.ErrCodeMetadataSizeExceedsError, lib.ErrMessageMetadataSizeExceedsError, "", nil)
 	}
 
 	metaBytes := make([]byte, c.header.MetadataSize)
@@ -279,16 +292,6 @@ func (c *container) GetHeader() Header {
 // The Metadata contains unencrypted arbitrary information.
 func (c *container) GetMetadata() Metadata {
 	return c.metadata
-}
-
-// GetCipherData - returns the encrypted cipher data stored in the container.
-func (c *container) GetCipherData() []byte {
-	return c.cipherData
-}
-
-// GetData - returns the decrypted data.
-func (c *container) GetData() []byte {
-	return c.data
 }
 
 // GetMasterKey - return master key used for decrypting container.

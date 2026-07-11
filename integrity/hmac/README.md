@@ -14,11 +14,11 @@ This provider verifies data integrity by creating and validating signatures base
 
 ## Implementation Details
 
-The HMAC provider implements the `integrity_provider.IntegrityProvider` interface:
+The HMAC provider implements the `integrity.Provider` interface:
 
 - **Sign**: Creates an HMAC-SHA256 signature for the provided data
-- **Verify**: Checks if a signature is valid for the given data
-- **ID**: Returns the provider type identifier (IntegrityHMAC)
+- **IsVerify**: Checks if a signature is valid for the given data
+- **ID**: Returns the provider type identifier (`integrity.TypeHMAC`)
 
 ## Security Properties
 

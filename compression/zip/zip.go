@@ -112,7 +112,9 @@ func (z *zip) PackTo(folder string, out io.Writer) error {
 			return nil
 		}
 
-		f, err := os.Open(filepath.Clean(path))
+		// Symlinks are handled above and never followed here; only regular files
+		// from the user's own trusted folder are opened, so there is no TOCTOU boundary.
+		f, err := os.Open(filepath.Clean(path)) // #nosec G122
 		if err != nil {
 			return lib.IOErr(lib.CategoryCompression, lib.ErrCodeOpenFileError, lib.ErrMessageOpenFileError, "", err)
 		}

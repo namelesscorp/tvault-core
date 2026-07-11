@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"math"
 	"os"
 	"strings"
 
@@ -237,6 +238,10 @@ func parseTokenList(
 				)
 			}
 
+			if tok.ID < 0 || tok.ID > math.MaxUint8 {
+				return nil, nil, lib.ErrTokenIDOutOfRange
+			}
+
 			shares = append(shares, shamir.Share{
 				ID:        byte(tok.ID),
 				Value:     masterKey,
@@ -278,6 +283,10 @@ func createShareFromToken(item token.Token) (shamir.Share, error) {
 			"",
 			err,
 		)
+	}
+
+	if item.ID < 0 || item.ID > math.MaxUint8 {
+		return shamir.Share{}, lib.ErrTokenIDOutOfRange
 	}
 
 	return shamir.Share{

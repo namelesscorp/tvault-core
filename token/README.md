@@ -8,7 +8,7 @@ Tokens are used to store and transmit metadata about secret shares and pass keys
 ## Features
 
 - Creation of tokens with various types and metadata
-- Token encryption using AES-CTR
+- Authenticated token encryption using AES-GCM (AEAD)
 - Token decoding and validation
 - Support for signatures to verify integrity
 
@@ -22,11 +22,14 @@ The package defines the following token types:
 
 ## Security
 
-- Tokens can be encrypted using AES-CTR to protect data
+- Encrypted tokens use the envelope `0x01 || 12-byte nonce || ciphertext+tag`, encoded as Base64
+- The format byte is authenticated as AES-GCM additional data
+- Any modification of the format byte, nonce, ciphertext, or tag is rejected before JSON parsing
+- A fresh random nonce is generated for every encrypted token
 - The package validates token versions to ensure compatibility
 - The signature field (`Signature`) can be used to ensure integrity
 
 ## Notes
 
-Tokens in the current implementation use version 1. 
+Tokens in the current implementation use version 1. AES-CTR development tokens are intentionally not accepted.
 When changing token formats, the `Version` constant should be updated to ensure backward compatibility.
