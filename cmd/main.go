@@ -50,40 +50,49 @@ var (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+// run executes the CLI and returns the process exit code: 0 on success,
+// non-zero on any error (bad usage, command failure, or a recovered panic).
+// main wraps this so os.Exit still runs the deferred debug.Stop and panic
+// recovery below before the process terminates.
+func run() (exitCode int) {
 	defer func() {
 		debug.Stop()
 
 		if r := recover(); r != nil {
 			fmt.Println("recovered from panic: ", r)
+			exitCode = 1
 		}
 	}()
 
 	if len(os.Args) < 2 {
 		fmt.Printf(usageMessage, commandSeal, commandUnseal, commandReseal, commandVersion, commandInfo)
-		return
+		return 1
 	}
 
 	switch os.Args[1] {
 	case commandSeal:
 		if logWriter, err := handleSeal(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandSeal, err)
-			return
+			return 1
 		}
 	case commandUnseal:
 		if logWriter, err := handleUnseal(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandUnseal, err)
-			return
+			return 1
 		}
 
 	case commandReseal:
 		if logWriter, err := handleReseal(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandReseal, err)
-			return
+			return 1
 		}
 	case commandContainer:
 		if logWriter, err := handleContainer(os.Args[2:]); err != nil {
 			lib.ErrorFormatted(logWriter, commandContainer, err)
-			return
+			return 1
 		}
 	case commandVersion:
 		fmt.Printf(
@@ -117,7 +126,10 @@ func main() {
 			commandVersion,
 			commandInfo,
 		)
+		return 1
 	}
+
+	return 0
 }
 
 func findNextSubcommand(args []string, startIdx int) int {

@@ -13,7 +13,8 @@ import (
 )
 
 const containerInformationMessage = "[container information]\nName: %s\nVersion: %d\nCreated at: %s\nUpdated at: %s\n" +
-	"Comment: %s\nTags: %s\nToken type: %s\nProvider type: %s\nCompression type: %s\nShares: %d\nThreshold: %d\n"
+	"Comment: %s\nTags: %s\nToken type: %s\nProvider type: %s\nCompression type: %s\nShares: %d\nThreshold: %d\n" +
+	"Compression Size: %d\nUncompressed Size: %d\nSecurity Score: %.2f\nFile Count: %d\n"
 
 type Information struct {
 	Name                  string   `json:"name"`
@@ -27,6 +28,10 @@ type Information struct {
 	CompressionType       string   `json:"compression_type"`
 	Shares                uint8    `json:"shares"`
 	Threshold             uint8    `json:"threshold"`
+	FileCount             int64    `json:"file_count"`
+	CompressedSize        int64    `json:"compressed_size"`
+	UncompressedSize      int64    `json:"uncompressed_size"`
+	SecurityScore         float64  `json:"security_score"`
 }
 
 func Info(opts Options) error {
@@ -70,9 +75,13 @@ func Info(opts Options) error {
 			strings.Join(cont.GetMetadata().Tags, ","),
 			token.ConvertIDToName(cont.GetHeader().TokenType),
 			integrity.ConvertIDToName(cont.GetHeader().IntegrityProviderType),
-			integrity.ConvertIDToName(cont.GetHeader().CompressionType),
+			compression.ConvertIDToName(cont.GetHeader().CompressionType),
 			cont.GetHeader().Shares,
 			cont.GetHeader().Threshold,
+			cont.GetMetadata().CompressedSize,
+			cont.GetMetadata().UncompressedSize,
+			cont.GetMetadata().SecurityScore,
+			cont.GetMetadata().FileCount,
 		)
 	case lib.WriterFormatJSON:
 		msg = Information{
@@ -87,6 +96,10 @@ func Info(opts Options) error {
 			CompressionType:       compression.ConvertIDToName(cont.GetHeader().CompressionType),
 			Shares:                cont.GetHeader().Shares,
 			Threshold:             cont.GetHeader().Threshold,
+			CompressedSize:        cont.GetMetadata().CompressedSize,
+			UncompressedSize:      cont.GetMetadata().UncompressedSize,
+			SecurityScore:         cont.GetMetadata().SecurityScore,
+			FileCount:             cont.GetMetadata().FileCount,
 		}
 	}
 

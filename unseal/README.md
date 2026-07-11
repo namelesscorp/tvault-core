@@ -92,7 +92,7 @@ The unseal package supports two types of tokens:
 
 ```json
 {
-  "tokenList": [
+  "token_list": [
     "<token1>",
     "<token2>",
     "<token3>"

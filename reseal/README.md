@@ -10,6 +10,8 @@ It allows users to modify the content of an encrypted container without changing
 - Re-encrypting existing TVault containers
 - Preserving original container metadata while updating content
 - Maintaining the same token access method
+- Preserving token strings unless the integrity passphrase is rotated
+- Atomically replacing container and token files
 - Supporting all token types and integrity providers
 - Seamlessly working with Shamir's Secret Sharing
 
@@ -126,15 +128,17 @@ The `Reseal` function orchestrates the entire resealing process:
 1. Open the original encrypted container
 2. Extract the master key using the provided token(s)
 3. Compress the new content folder
-4. Re-encrypt the container with the updated content
-5. Write the updated container to the specified path
-6. Generate and save updated token(s) if needed
+4. Generate token output in memory before modifying destination files
+5. Re-encrypt the container into a temporary file
+6. Flush and atomically rename the new container over its destination
+7. Flush and atomically replace the token file, if file output is configured
 
 ## Token Handling
 
 The reseal package maintains the same token type and structure as the original container:
-- For containers with a master token, a new master token is generated
-- For containers with Shamir shares, new shares are generated with the same threshold parameters
+- If `new-passphrase` is empty or equals `current-passphrase`, original token strings are preserved
+- If `new-passphrase` differs, master/share tokens are re-issued with the same master key
+- Re-issued Shamir shares use the original share and threshold parameters
 - For containers without tokens (passphrase-only), no tokens are generated
 
 ## Metadata Handling
@@ -164,7 +168,8 @@ During the resealing process, detailed error information is provided for:
 
 - Store tokens securely and separate from encrypted containers
 - When updating integrity passphrases, ensure both old and new values are kept secure
-- Consider using different output paths for updated containers to maintain originals
+- Container and token files are written through temporary files and atomically renamed; failures before rename preserve the previous destination
+- The container and token renames are sequential rather than a single cross-file transaction; old tokens remain usable because reseal preserves the master key
 - Verify the updated container can be unsealed before discarding originals
 
 ## Compatibility

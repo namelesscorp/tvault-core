@@ -18,9 +18,15 @@ package container
 // | 0x29   | 4	  | metadata length						        |
 // | 0x2D   | 1	  | shares								        |
 // | 0x2E   | 1	  | threshold							        |
-// | 0x2F   | N	  | metadata JSON (plaintext)			        |
-// | 0x2F+N | ... | ciphertext + 16-byte GCM tag		        |
+// | 0x2F   | 4	  | chunk size (plaintext bytes)			        |
+// | 0x33   | N	  | metadata JSON (plaintext)			        |
+// | 0x33+N | ... | length-prefixed AES-GCM chunks		        |
 // +--------+-------+-------------------------------------------+
+//
+// The payload is a sequence of chunks, each a little-endian uint32 plaintext
+// length followed by that chunk's ciphertext + 16-byte GCM tag, terminated by
+// a uint32(0) length. Each chunk reuses the base nonce with a per-chunk
+// counter in bytes nonce[4:].
 //
 
 import (
@@ -39,16 +45,13 @@ import (
 type (
 	// Container - defines an interface for creating, opening, decrypting, and retrieving data from a container.
 	Container interface {
-		Encrypt(data, key []byte) error
-		Write() error
+		WriteEncrypted(r io.Reader, key []byte) error
 
 		Read() error
-		Decrypt(masterKey []byte) error
+		DecryptTo(w io.Writer, masterKey []byte) error
 
-		GetCipherData() []byte
 		GetHeader() Header
 		GetMetadata() Metadata
-		GetData() []byte
 		GetMasterKey() []byte
 
 		SetPath(path string)
@@ -57,12 +60,10 @@ type (
 	}
 
 	container struct {
-		path       string
-		cipherData []byte
-		data       []byte
-		header     Header
-		metadata   Metadata
-		masterKey  []byte
+		path      string
+		header    Header
+		metadata  Metadata
+		masterKey []byte
 	}
 )
 
@@ -84,239 +85,199 @@ func NewContainer(
 	}
 }
 
-// Encrypt encrypts the provided plaintext `data` using a derived AES-GCM key generated from the given `key`.
-// This method initializes the `main key`, generates nonce, seals the data, and stores the ciphertext in `cipherData`.
-func (c *container) Encrypt(data, key []byte) error {
+// WriteEncrypted - writes encrypted data to the container
+func (c *container) WriteEncrypted(r io.Reader, key []byte) error {
 	if len(c.masterKey) == 0 || c.masterKey == nil {
-		// key derivation
 		c.masterKey = lib.PBKDF2Key(key, c.header.Salt[:], c.header.Iterations, lib.KeyLen)
 	}
 
-	// seal plaintext
 	block, err := aes.NewCipher(c.masterKey)
 	if err != nil {
-		return lib.CryptoErr(
-			lib.CategoryContainer,
-			lib.ErrCodeCreateNewCipherError,
-			lib.ErrMessageCreateNewCipherError,
-			"",
-			err,
-		)
+		return lib.CryptoErr(lib.CategoryContainer, lib.ErrCodeCreateNewCipherError, lib.ErrMessageCreateNewCipherError, "", err)
 	}
-
 	aesGcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return lib.CryptoErr(
-			lib.CategoryContainer,
-			lib.ErrCodeCreateNewGCMError,
-			lib.ErrMessageCreateNewGCMError,
-			"",
-			err,
-		)
+		return lib.CryptoErr(lib.CategoryContainer, lib.ErrCodeCreateNewGCMError, lib.ErrMessageCreateNewGCMError, "", err)
 	}
 
 	if _, err = io.ReadFull(rand.Reader, c.header.Nonce[:]); err != nil {
-		return lib.CryptoErr(
-			lib.CategoryContainer,
-			lib.ErrCodeGenerateNonceError,
-			lib.ErrMessageGenerateNonceError,
-			"",
-			err,
-		)
+		return lib.CryptoErr(lib.CategoryContainer, lib.ErrCodeGenerateNonceError, lib.ErrMessageGenerateNonceError, "", err)
 	}
 
-	c.cipherData = aesGcm.Seal(nil, c.header.Nonce[:], data, nil) // #nosec G407
-
-	return nil
-}
-
-// Write - writes the encrypted data, metadata, header of the container to the specified file path.
-func (c *container) Write() error {
-	var (
-		f   *os.File
-		err error
-	)
-	if f, err = os.OpenFile(c.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeContainerOpenFileError,
-			lib.ErrMessageContainerOpenFileError,
-			"",
-			err,
-		)
+	metaBytes, err := json.Marshal(c.metadata)
+	if err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeJSONMarshalMetadataError, lib.ErrMessageJSONMarshalMetadataError, "", err)
 	}
-	defer func(f *os.File) {
-		if err = f.Close(); err != nil {
-			fmt.Printf("error closing file; %v", err)
-		}
-	}(f)
-
-	var metaBytes []byte
-	if metaBytes, err = json.Marshal(c.metadata); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeJSONMarshalMetadataError,
-			lib.ErrMessageJSONMarshalMetadataError,
-			"",
-			err,
-		)
-	}
-
 	c.header.MetadataSize = uint32(len(metaBytes)) // #nosec G115
 
+	f, err := os.OpenFile(c.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeContainerOpenFileError, lib.ErrMessageContainerOpenFileError, "", err)
+	}
+	defer func() {
+		if errClose := f.Close(); errClose != nil {
+			fmt.Printf("error closing file; %v", errClose)
+		}
+	}()
+
 	if err = binary.Write(f, binary.LittleEndian, &c.header); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeWriteHeaderBinaryError,
-			lib.ErrMessageWriteHeaderBinaryError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteHeaderBinaryError, lib.ErrMessageWriteHeaderBinaryError, "", err)
 	}
-
 	if _, err = f.Write(metaBytes); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeWriteMetadataError,
-			lib.ErrMessageWriteMetadataError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteMetadataError, lib.ErrMessageWriteMetadataError, "", err)
 	}
 
-	if _, err = f.Write(c.cipherData); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeWriteCipherTextError,
-			lib.ErrMessageWriteCipherTextError,
-			"",
-			err,
-		)
+	var chunkSize = int(c.header.ChunkSize)
+	if chunkSize <= 0 {
+		chunkSize = 4 * 1024 * 1024
+	}
+
+	var (
+		plainBuf        = make([]byte, chunkSize)
+		counter  uint64 = 0
+	)
+	for {
+		n, readErr := r.Read(plainBuf)
+		if n > 0 {
+			nonce := c.header.Nonce
+			binary.LittleEndian.PutUint64(nonce[4:], counter)
+
+			// nonce is a random prefix (crypto/rand, see header.Nonce) combined
+			// with a per-chunk counter, so it is unique per chunk and not hardcoded.
+			cipherChunk := aesGcm.Seal(nil, nonce[:], plainBuf[:n], nil) // #nosec G407
+
+			// n is the number of bytes read into plainBuf, so 0 <= n <= chunkSize <= math.MaxUint32.
+			chunkLen := uint32(n) // #nosec G115
+			if err := binary.Write(f, binary.LittleEndian, chunkLen); err != nil {
+				return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteCipherTextError, lib.ErrMessageWriteCipherTextError, "", err)
+			}
+			if _, err := f.Write(cipherChunk); err != nil {
+				return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteCipherTextError, lib.ErrMessageWriteCipherTextError, "", err)
+			}
+
+			counter++
+		}
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+			return lib.IOErr(lib.CategoryContainer, lib.ErrCodeReadCipherTextError, lib.ErrMessageReadCipherTextError, "", readErr)
+		}
+	}
+
+	if err := binary.Write(f, binary.LittleEndian, uint32(0)); err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteCipherTextError, lib.ErrMessageWriteCipherTextError, "", err)
+	}
+
+	// Flush the file contents to stable storage before returning so a subsequent
+	// atomic rename cannot expose a container whose data was lost to a power
+	// failure still sitting in the OS page cache.
+	if err := f.Sync(); err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeContainerSyncFileError, lib.ErrMessageContainerSyncFileError, "", err)
 	}
 
 	return nil
 }
 
-// Read - reads, validates, and initializes container data from the specified file.
+// Read - reads encrypted data from the container
 func (c *container) Read() error {
 	f, err := os.Open(c.path)
 	if err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeContainerOpenFileError,
-			lib.ErrMessageContainerOpenFileError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeContainerOpenFileError, lib.ErrMessageContainerOpenFileError, "", err)
 	}
-	defer func(f *os.File) {
-		if err = f.Close(); err != nil {
-			fmt.Printf("error closing file; %v", err)
+	defer func() {
+		if errClose := f.Close(); errClose != nil {
+			fmt.Printf("error closing file; %v", errClose)
 		}
-	}(f)
+	}()
 
 	if c.header, err = NewHeader(0, 0, 0, 0, 0); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeInitHeaderError,
-			lib.ErrMessageInitHeaderError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeInitHeaderError, lib.ErrMessageInitHeaderError, "", err)
 	}
-
 	if err = binary.Read(f, binary.LittleEndian, &c.header); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeReadBinaryError,
-			lib.ErrMessageReadBinaryError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeReadBinaryError, lib.ErrMessageReadBinaryError, "", err)
 	}
 
 	if string(c.header.Signature[:]) != signature {
 		return lib.ErrInvalidContainerSignature
 	}
-
 	if c.header.Version != Version {
 		return lib.ErrInvalidContainerVersion
 	}
 
+	if c.header.MetadataSize > MaxMetadataSize {
+		return lib.FormatErr(lib.CategoryContainer, lib.ErrCodeMetadataSizeExceedsError, lib.ErrMessageMetadataSizeExceedsError, "", nil)
+	}
+
 	metaBytes := make([]byte, c.header.MetadataSize)
 	if _, err = io.ReadFull(f, metaBytes); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeReadMetadataError,
-			lib.ErrMessageReadMetadataError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeReadMetadataError, lib.ErrMessageReadMetadataError, "", err)
 	}
 
 	if err = json.Unmarshal(metaBytes, &c.metadata); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeJSONUnmarshalMetadataError,
-			lib.ErrMessageJSONUnmarshalMetadataError,
-			"",
-			err,
-		)
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeJSONUnmarshalMetadataError, lib.ErrMessageJSONUnmarshalMetadataError, "", err)
 	}
-
-	var ciphertext []byte
-	if ciphertext, err = io.ReadAll(f); err != nil {
-		return lib.IOErr(
-			lib.CategoryContainer,
-			lib.ErrCodeReadCipherTextError,
-			lib.ErrMessageReadCipherTextError,
-			"",
-			err,
-		)
-	}
-
-	c.cipherData = ciphertext
 
 	return nil
 }
 
-// Decrypt - decrypts the container's cipherData using the provided masterKey and initializes the decrypted data in memory.
-func (c *container) Decrypt(masterKey []byte) error {
+// DecryptTo - decrypts the container data and writes it to the provided writer
+func (c *container) DecryptTo(w io.Writer, masterKey []byte) error {
 	if len(c.masterKey) == 0 || c.masterKey == nil {
 		c.masterKey = masterKey
 	}
 
-	// unseal
 	block, err := aes.NewCipher(c.masterKey)
 	if err != nil {
-		return lib.CryptoErr(
-			lib.CategoryContainer,
-			lib.ErrCodeCreateNewCipherError,
-			lib.ErrMessageCreateNewCipherError,
-			"",
-			err,
-		)
+		return lib.CryptoErr(lib.CategoryContainer, lib.ErrCodeCreateNewCipherError, lib.ErrMessageCreateNewCipherError, "", err)
 	}
-
 	aesGcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return lib.CryptoErr(
-			lib.CategoryContainer,
-			lib.ErrCodeCreateNewGCMError,
-			lib.ErrMessageCreateNewGCMError,
-			"",
-			err,
-		)
+		return lib.CryptoErr(lib.CategoryContainer, lib.ErrCodeCreateNewGCMError, lib.ErrMessageCreateNewGCMError, "", err)
 	}
 
-	if c.data, err = aesGcm.Open(nil, c.header.Nonce[:], c.cipherData, nil); err != nil {
-		return lib.CryptoErr(
-			lib.CategoryContainer,
-			lib.ErrCodeOpenCipherTextError,
-			lib.ErrMessageOpenCipherTextError,
-			"",
-			err,
-		)
+	f, err := os.Open(c.path)
+	if err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeContainerOpenFileError, lib.ErrMessageContainerOpenFileError, "", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	headerSize := int64(binary.Size(Header{}))
+	payloadOffset := headerSize + int64(c.header.MetadataSize)
+	if _, err := f.Seek(payloadOffset, io.SeekStart); err != nil {
+		return lib.IOErr(lib.CategoryContainer, lib.ErrCodeReadCipherTextError, lib.ErrMessageReadCipherTextError, "", err)
+	}
+
+	var counter uint64 = 0
+	for {
+		var plainLen uint32
+		if err := binary.Read(f, binary.LittleEndian, &plainLen); err != nil {
+			return lib.IOErr(lib.CategoryContainer, lib.ErrCodeReadCipherTextError, lib.ErrMessageReadCipherTextError, "", err)
+		}
+		if plainLen == 0 {
+			break
+		}
+
+		cipherLen := int(plainLen) + aesGcm.Overhead()
+		cipherBuf := make([]byte, cipherLen)
+		if _, err := io.ReadFull(f, cipherBuf); err != nil {
+			return lib.IOErr(lib.CategoryContainer, lib.ErrCodeReadCipherTextError, lib.ErrMessageReadCipherTextError, "", err)
+		}
+
+		nonce := c.header.Nonce
+		binary.LittleEndian.PutUint64(nonce[4:], counter)
+
+		plain, err := aesGcm.Open(nil, nonce[:], cipherBuf, nil)
+		if err != nil {
+			return lib.CryptoErr(lib.CategoryContainer, lib.ErrCodeOpenCipherTextError, lib.ErrMessageOpenCipherTextError, "", err)
+		}
+
+		if _, err := w.Write(plain); err != nil {
+			return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteCipherTextError, lib.ErrMessageWriteCipherTextError, "", err)
+		}
+
+		counter++
 	}
 
 	return nil
@@ -331,16 +292,6 @@ func (c *container) GetHeader() Header {
 // The Metadata contains unencrypted arbitrary information.
 func (c *container) GetMetadata() Metadata {
 	return c.metadata
-}
-
-// GetCipherData - returns the encrypted cipher data stored in the container.
-func (c *container) GetCipherData() []byte {
-	return c.cipherData
-}
-
-// GetData - returns the decrypted data.
-func (c *container) GetData() []byte {
-	return c.data
 }
 
 // GetMasterKey - return master key used for decrypting container.

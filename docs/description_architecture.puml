@@ -1,0 +1,42 @@
+@startuml
+title Trust Vault — Secure Your Files
+
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam roundcorner 15
+left to right direction
+
+folder "Your Files" as Files
+card "Your Password" as Password
+
+rectangle "Trust Vault" as TVault #lightblue {
+  card "Compress"
+  card "Encrypt\nAES-256"
+  card "Protect Access"
+}
+
+database "Encrypted Container\n.tvlt" as Container #lightgreen
+
+rectangle "Access Keys" as Access #lightyellow {
+  card "Password\nsimple access"
+  card "Master Token\none protected key"
+  card "Share Tokens\nsplit key, e.g. 3 of 5"
+}
+
+Files --> TVault
+Password --> TVault
+
+TVault --> Container : protected data
+TVault --> Access : ways to open
+
+note bottom of Container
+Your files are stored encrypted.
+Nobody can read them without access.
+end note
+
+note bottom of Access
+Choose how the container is opened:
+just a password, a single token,
+or a key split between several people.
+end note
+@enduml

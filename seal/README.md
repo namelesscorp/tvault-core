@@ -121,7 +121,7 @@ Command: shamir
 
 | Option    | Description                                       | Default | Required                     | Flag        |
 |-----------|---------------------------------------------------|---------|------------------------------|-------------|
-| IsEnabled | Enable Shamir's Secret Sharing                    | True    | Yes (for token -type=shamir) | -is-enabled |
+| IsEnabled | Enable Shamir's Secret Sharing                    | True    | Yes (for token -type=share) | -is-enabled |
 | Shares    | Number of shares to generate                      | 5       | No                           | -shares     |
 | Threshold | Minimum shares required to reconstruct the secret | 3       | No                           | -threshold  |
 

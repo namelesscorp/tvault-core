@@ -2,6 +2,7 @@ package container
 
 import (
 	"bytes"
+	"encoding/binary"
 	"os"
 	"testing"
 	"time"
@@ -48,18 +49,13 @@ func TestContainer(t *testing.T) {
 			t.Errorf("Expected Comment to be %s, got %s", "Test comment", cont.GetMetadata().Comment)
 		}
 
-		err = cont.Encrypt(testData, passphrase)
+		err = cont.WriteEncrypted(bytes.NewReader(testData), passphrase)
 		if err != nil {
-			t.Fatalf("Failed to encrypt data: %v", err)
+			t.Fatalf("Failed to write encrypted data: %v", err)
 		}
 
-		if len(cont.GetCipherData()) == 0 {
-			t.Errorf("Expected cipherData to be non-empty")
-		}
-
-		err = cont.Write()
-		if err != nil {
-			t.Fatalf("Failed to write container: %v", err)
+		if len(cont.GetMasterKey()) == 0 {
+			t.Errorf("Expected master key to be non-empty")
 		}
 
 		readContainer := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
@@ -81,13 +77,45 @@ func TestContainer(t *testing.T) {
 			t.Errorf("Expected Comment to be %s, got %s", "Test comment", readContainer.GetMetadata().Comment)
 		}
 
-		err = readContainer.Decrypt(cont.GetMasterKey())
+		var decrypted bytes.Buffer
+		err = readContainer.DecryptTo(&decrypted, cont.GetMasterKey())
 		if err != nil {
 			t.Fatalf("Failed to decrypt data: %v", err)
 		}
 
-		if !bytes.Equal(readContainer.GetData(), testData) {
-			t.Errorf("Expected decrypted data to be %v, got %v", testData, readContainer.GetData())
+		if !bytes.Equal(decrypted.Bytes(), testData) {
+			t.Errorf("Expected decrypted data to be %v, got %v", testData, decrypted.Bytes())
+		}
+	})
+
+	t.Run("read rejects oversized metadata size", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "container_hostile_*.tvlt")
+		if err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+		defer func(name string) {
+			_ = os.Remove(name)
+		}(tempFile.Name())
+
+		// Craft a valid-looking header whose MetadataSize claims more than the
+		// cap. A hostile container would use this to force a huge allocation in
+		// Read before any bytes are actually read from disk.
+		header, err := NewHeader(1, 1, 1, 3, 2)
+		if err != nil {
+			t.Fatalf("Failed to create header: %v", err)
+		}
+		header.MetadataSize = MaxMetadataSize + 1
+
+		if err = binary.Write(tempFile, binary.LittleEndian, &header); err != nil {
+			t.Fatalf("Failed to write header: %v", err)
+		}
+		if err = tempFile.Close(); err != nil {
+			t.Fatalf("Failed to close temp file: %v", err)
+		}
+
+		cont := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
+		if err = cont.Read(); err == nil {
+			t.Fatal("Expected Read to reject oversized metadata size, got nil error")
 		}
 	})
 

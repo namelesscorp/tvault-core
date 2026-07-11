@@ -1,6 +1,7 @@
 # Trust Vault Core
 
 - [Description](#description)
+  - [Architecture](#architecture)
 - [Key Features](#key-features)
     - [Comprehensive File and Directory Encryption](#comprehensive-file-and-directory-encryption)
     - [Advanced Key Management](#advanced-key-management)
@@ -39,6 +40,10 @@ This platform offers a comprehensive toolkit for securing files and directories,
 Developed with principles of modularity and flexibility in mind, TVault Core offers both a command-line interface for simple use and a programming API for deep integration into custom applications. 
 The system supports multiple mechanisms for storing and distributing encryption keys, including advanced secret sharing methods.
 
+### Architecture
+
+![Architecture](docs/description_architecture.svg)
+
 ## Key Features
 
 ### Comprehensive File and Directory Encryption
@@ -46,7 +51,7 @@ The system supports multiple mechanisms for storing and distributing encryption 
 - **Robust Data Protection**: Using the AES-256 standard for encryption
 - **Directory Structure Preservation**: Complete preservation of file hierarchy during encryption
 - **Built-in Compression**: Reduction of encrypted container size
-- **Container Metadata**: Storage of creation time, update information, and user comments
+- **Container Metadata**: Storage of creation time, update information, user comments, etc.
 
 ### Advanced Key Management
 
@@ -75,6 +80,7 @@ The system supports multiple mechanisms for storing and distributing encryption 
 - **HMAC Integrity Verification**: Prevents tampering with encrypted data
 - **Distributed Key Management**: Split keys using Shamir's Secret Sharing
 - **Multiple Token Formats**: Support for different token storage methods
+- **Security Score**: Comprehensive evaluation of security measures
 
 ## Installation
 
@@ -112,7 +118,7 @@ The sealing process includes:
 
 
 ```shell
-tvault seal \
+tvault-core seal \
 container \
   -name="container-name" \
   -new-path="/path/to/output.tvlt" \
@@ -154,7 +160,7 @@ The unsealing process includes:
 
 
 ```shell
-tvault unseal \
+tvault-core unseal \
 container \
   -current-path="/path/to/container.tvlt" \
   -folder-path="/path/to/output" \
@@ -183,7 +189,7 @@ The resealing process includes:
 5. Generating new tokens with the same cryptographic key
 
 ```shell
-tvault reseal \
+tvault-core reseal \
 container \
   -name="new-container-name" \
   -current-path="/path/to/original.tvlt" \
@@ -223,6 +229,9 @@ The container consists of several key components:
   - User comments and descriptions
   - Custom tags for organization and filtering
   - Container versioning information
+  - Security score
+  - File count in container
+  - Compressed and uncompressed container sizes
 
 3. **Encrypted Payload** — The actual encrypted content
 
@@ -234,11 +243,13 @@ The container information retrieval process:
 3. Extracts and formats information about the container configuration
 4. Outputs the information in the specified format (plaintext or JSON)
 
+![core_components_container](docs/core_components_container.svg)
+
 Container info can be retrieved using the CLI:
 
 ```shell
-tvault container \
-info
+tvault-core container \
+info \
   -path="/path/to/original.tvlt" \
 info-writer \
   -type="file" \
@@ -257,20 +268,26 @@ TVault Core supports multiple token types:
 Encryption using only a password, without creating a separate token. 
 This method is simple to use but requires secure storage and transmission of the password.
 
+![token_types_none](docs/token_types_none.svg)
+
 ### Master Type
 A single token containing the master key, encrypted using a password. 
 This approach provides an additional layer of security by separating the key and password.
+
+![token_types_master](docs/token_types_master.svg)
 
 ### Share Type
 Multiple tokens using Shamir's Secret Sharing scheme.
 This method allows distributing access among multiple participants, requiring a certain number of tokens to decrypt the data.
 
+![token_types_share](docs/token_types_share.svg)
+
 ### Command
 
 ```shell
-tvault seal \
+tvault-core seal \
 token \
-  -type="shamir" \
+  -type="share" \
 # other command parameters
 ```
 
@@ -292,7 +309,7 @@ A promising mechanism based on the Ed25519 digital signature algorithm, providin
 ### Command
 
 ```shell
-tvault seal \
+tvault-core seal \
 integrity-provider \
   -type="hmac" \
   -new-passphrase="new-passphrase" \
@@ -343,7 +360,7 @@ It provides a good balance between compression ratio and processing speed.
 ### Command
 
 ```shell
-tvault seal \
+tvault-core seal \
 compression \
   -type="zip" \
 # other command parameters
@@ -363,6 +380,8 @@ compression \
 We welcome contributions to the project. 
 Detailed information about the development process, commit formatting, and creating merge requests can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Developer documentation: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+
 ## License
 TVault Core is proprietary software. 
 Use of this code is governed by the [license](LICENSE) agreement.
@@ -378,4 +397,4 @@ If you have questions or issues, please create an Issue in the repository or con
 
 ---
 
-© 2025 Trust Vault. All rights reserved.
+© 2026 Trust Vault. All rights reserved.

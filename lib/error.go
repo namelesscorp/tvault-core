@@ -157,6 +157,14 @@ const (
 	ErrCodeInfoWriterFormatInvalid ErrorCode = 0x00107
 
 	ErrCodeInfoPathRequired ErrorCode = 0x00108
+
+	ErrCodeResealWriteTokensError ErrorCode = 0x00109
+	ErrCodeResealSyncDirError     ErrorCode = 0x0010A
+
+	ErrCodeContainerSyncFileError ErrorCode = 0x0010B
+
+	ErrCodeTokenGCMSealError ErrorCode = 0x0010C
+	ErrCodeTokenGCMOpenError ErrorCode = 0x0010D
 )
 
 const (
@@ -202,6 +210,8 @@ const (
 	ErrMessageTokenUnmarshalJSONError = "failed to unmarshal token JSON"
 	ErrMessageTokenCreateCipherError  = "failed to create cipher"
 	ErrMessageTokenDecodeBase64Error  = "failed to decode Base64 token"
+	ErrMessageTokenGCMSealError       = "failed to seal token (AES-GCM)"
+	ErrMessageTokenGCMOpenError       = "token authentication failed (AES-GCM)"
 
 	ErrMessageShamirInvalidThresholdOrShares = "invalid threshold or number of shares"
 	ErrMessageShamirIOReadFullError          = "io read full error"
@@ -249,6 +259,10 @@ const (
 	ErrMessageResealWriteContainerError           = "write container error"
 	ErrMessageResealCreateIntegrityProviderError  = "create integrity provider error"
 	ErrMessageResealDeriveAdditionalPasswordError = "derive additional password error"
+	ErrMessageResealWriteTokensError              = "write tokens error" // #nosec G101
+	ErrMessageResealSyncDirError                  = "sync directory error"
+
+	ErrMessageContainerSyncFileError = "sync container file error"
 )
 
 const (
@@ -302,6 +316,10 @@ var (
 	ErrContainerPassphraseRequired  = errors.New("container -passphrase is required")
 
 	ErrTokenTypeInvalid = errors.New("token -type must be [none | share | master]")
+
+	ErrTokenCiphertextTooShort  = errors.New("token ciphertext is shorter than the envelope header")
+	ErrTokenIDOutOfRange        = errors.New("token id is out of byte range [0, 255]")
+	ErrTokenUnsupportedEncoding = errors.New("unsupported token encryption format")
 
 	ErrIntegrityProviderTypeNotNone           = errors.New("integrity-provider -type must be [none] for token -type=[none]")
 	ErrIntegrityProviderTypeInvalid           = errors.New("integrity-provider -type must be [none | hmac ]")

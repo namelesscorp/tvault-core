@@ -14,6 +14,10 @@ import (
 const usageSealTemplate = "usage: tvault-core seal <subcommand> [options]\n" +
 	"available subcommands: [%s | %s | %s | %s | %s | %s | %s]"
 
+// handleSeal - processing "seal" subcommand
+// - parse args
+// - validate options
+// - seal
 func handleSeal(args []string) (*lib.Writer, error) {
 	var options = createDefaultSealOptions()
 	if len(args) < 1 {
@@ -47,6 +51,7 @@ func handleSeal(args []string) (*lib.Writer, error) {
 	return options.LogWriter, nil
 }
 
+// createDefaultSealOptions - get default opts
 func createDefaultSealOptions() seal.Options {
 	return seal.Options{
 		Container: &lib.Container{
@@ -87,6 +92,7 @@ func createDefaultSealOptions() seal.Options {
 	}
 }
 
+// parseSealSubcommands - parse "seal" args
 func parseSealSubcommands(args []string, options *seal.Options) (map[string]bool, error) {
 	var usedSubcommands = make(map[string]bool)
 	for i := 0; i < len(args); {
@@ -137,6 +143,7 @@ func parseSealSubcommands(args []string, options *seal.Options) (map[string]bool
 	return usedSubcommands, nil
 }
 
+// processSealContainer - parse "container" args
 func processSealContainer(options *lib.Container, args []string) error {
 	var flagSet = flag.NewFlagSet(subContainer, flag.ExitOnError)
 
@@ -154,6 +161,7 @@ func processSealContainer(options *lib.Container, args []string) error {
 	return nil
 }
 
+// processSealToken - parse "token" args
 func processSealToken(options *lib.Token, args []string) error {
 	var flagSet = flag.NewFlagSet(subToken, flag.ExitOnError)
 
@@ -166,6 +174,7 @@ func processSealToken(options *lib.Token, args []string) error {
 	return nil
 }
 
+// processSealCompression - parse "compression" args
 func processSealCompression(options *lib.Compression, args []string) error {
 	var flagSet = flag.NewFlagSet(subCompression, flag.ExitOnError)
 
@@ -178,6 +187,7 @@ func processSealCompression(options *lib.Compression, args []string) error {
 	return nil
 }
 
+// processSealIntegrityProvider - parse "integrity-provider" args
 func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string) error {
 	var flagSet = flag.NewFlagSet(subIntegrityProvider, flag.ExitOnError)
 
@@ -191,6 +201,7 @@ func processSealIntegrityProvider(options *lib.IntegrityProvider, args []string)
 	return nil
 }
 
+// processSealShamir - parse "shamir" args
 func processSealShamir(options *lib.Shamir, args []string) error {
 	var flagSet = flag.NewFlagSet(subShamir, flag.ExitOnError)
 
@@ -205,6 +216,7 @@ func processSealShamir(options *lib.Shamir, args []string) error {
 	return nil
 }
 
+// processSealTokenWriter - parse "token-write" args
 func processSealTokenWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subTokenWriter, flag.ExitOnError)
 
@@ -219,6 +231,7 @@ func processSealTokenWriter(options *lib.Writer, args []string) error {
 	return nil
 }
 
+// processSealLogWriter - parse "log-writer" args
 func processSealLogWriter(options *lib.Writer, args []string) error {
 	var flagSet = flag.NewFlagSet(subLogWriter, flag.ExitOnError)
 

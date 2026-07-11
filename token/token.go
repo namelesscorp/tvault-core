@@ -3,8 +3,10 @@ package token
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 
 	"github.com/namelesscorp/tvault-core/lib"
 )
@@ -20,6 +22,12 @@ const (
 	TypeNameNone   string = "none"
 	TypeNameShare  string = "share"
 	TypeNameMaster string = "master"
+
+	// encFormatGCM - first byte of an encrypted token envelope, identifying the
+	// AES-GCM (AEAD) format: encFormatGCM || nonce || ciphertext+tag.
+	// It is authenticated as additional data so any tampering with the format
+	// byte is detected. Legacy AES-CTR tokens (no format byte) are not accepted.
+	encFormatGCM byte = 0x01
 )
 
 var Types = map[string]struct{}{
@@ -103,7 +111,10 @@ func Parse(tokenBytes, key []byte) (Token, error) {
 	return result, nil
 }
 
-// encrypt - encrypts the provided data using the given key with AES in CTR mode and returns the encrypted data or an error.
+// encrypt - encrypts the provided data with AES-GCM (AEAD) and returns the
+// envelope: encFormatGCM || nonce || ciphertext+tag. The format byte is bound
+// into the tag as additional authenticated data, so any modification of the
+// envelope (format byte, nonce, ciphertext or tag) is detected on decrypt.
 func encrypt(data, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -116,14 +127,42 @@ func encrypt(data, key []byte) ([]byte, error) {
 		)
 	}
 
-	encrypted := make([]byte, len(data))
-	stream := cipher.NewCTR(block, make([]byte, block.BlockSize()))
-	stream.XORKeyStream(encrypted, data)
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenGCMSealError,
+			lib.ErrMessageTokenGCMSealError,
+			"",
+			err,
+		)
+	}
 
-	return encrypted, nil
+	// A fresh random nonce per token keeps the AES-GCM keystream unique even when
+	// the same key encrypts multiple tokens.
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeRandReadNonceError,
+			lib.ErrMessageRandReadNonceError,
+			"",
+			err,
+		)
+	}
+
+	// Envelope layout: [format byte][nonce][ciphertext+tag]. The format byte is
+	// passed as additional authenticated data so it is covered by the tag.
+	envelope := make([]byte, 1+len(nonce), 1+len(nonce)+len(data)+aesGCM.Overhead())
+	envelope[0] = encFormatGCM
+	copy(envelope[1:], nonce)
+
+	return aesGCM.Seal(envelope, nonce, data, envelope[:1]), nil
 }
 
-// decrypt - decrypts the given encrypted data using the provided key with AES-CTR mode and returns the decrypted data.
+// decrypt - decrypts and authenticates an AES-GCM token envelope produced by
+// encrypt. It rejects any envelope that is too short, does not start with the
+// expected format byte, or fails authentication.
 func decrypt(data, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -136,9 +175,53 @@ func decrypt(data, key []byte) ([]byte, error) {
 		)
 	}
 
-	decrypted := make([]byte, len(data))
-	stream := cipher.NewCTR(block, make([]byte, block.BlockSize()))
-	stream.XORKeyStream(decrypted, data)
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenGCMOpenError,
+			lib.ErrMessageTokenGCMOpenError,
+			"",
+			err,
+		)
+	}
+
+	nonceSize := aesGCM.NonceSize()
+	if len(data) < 1+nonceSize+aesGCM.Overhead() {
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenGCMOpenError,
+			lib.ErrMessageTokenGCMOpenError,
+			"",
+			lib.ErrTokenCiphertextTooShort,
+		)
+	}
+
+	// Legacy AES-CTR tokens have no format byte and are intentionally not
+	// accepted: the clean switch to AES-GCM leaves no unauthenticated read path.
+	if data[0] != encFormatGCM {
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenGCMOpenError,
+			lib.ErrMessageTokenGCMOpenError,
+			"",
+			lib.ErrTokenUnsupportedEncoding,
+		)
+	}
+
+	nonce := data[1 : 1+nonceSize]
+	ciphertext := data[1+nonceSize:]
+
+	decrypted, err := aesGCM.Open(nil, nonce, ciphertext, data[:1])
+	if err != nil {
+		return nil, lib.CryptoErr(
+			lib.CategoryToken,
+			lib.ErrCodeTokenGCMOpenError,
+			lib.ErrMessageTokenGCMOpenError,
+			"",
+			err,
+		)
+	}
 
 	return decrypted, nil
 }

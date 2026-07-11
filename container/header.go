@@ -12,6 +12,16 @@ const (
 
 	// Version container version for backward compatibility
 	Version = 1
+
+	ChunkSize = 16 * 1024 * 1024 // 16 MiB
+
+	// MaxMetadataSize is the upper bound on the plaintext metadata length
+	// accepted when reading a container. The metadata is a small JSON struct,
+	// so 1 MiB is far more than any legitimate container needs. The cap
+	// prevents a hostile header from forcing a multi-gigabyte allocation
+	// (MetadataSize is an attacker-controlled uint32) before the bytes are
+	// ever read from disk.
+	MaxMetadataSize = 1 * 1024 * 1024 // 1 MiB
 )
 
 type Header struct {
@@ -23,10 +33,11 @@ type Header struct {
 	CompressionType       uint8    // compression type for data - "0x01"
 	IntegrityProviderType uint8    // integrity provider type for token - "0x01"
 	TokenType             uint8    // token type - "0x01"
-	Nonce                 [12]byte // AES‑GCM nonce (number used once)
+	Nonce                 [12]byte // base nonce for chunked AES-GCM
 	MetadataSize          uint32   // metadata size
 	Shares                uint8    // shamir number of shares
 	Threshold             uint8    // shamir threshold count
+	ChunkSize             uint32   // plaintext chunk size (bytes)
 }
 
 func NewHeader(
@@ -43,6 +54,7 @@ func NewHeader(
 		Threshold:             threshold,
 		IntegrityProviderType: integrityProviderType,
 		TokenType:             tokenType,
+		ChunkSize:             ChunkSize,
 	}
 
 	if _, err := rand.Read(h.Salt[:]); err != nil {

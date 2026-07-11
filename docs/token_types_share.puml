@@ -1,0 +1,67 @@
+@startuml
+title Share Tokens: Container Creation, Key Splitting and HMAC
+
+actor User
+participant "Application" as App
+participant "Key Derivation" as KDF
+participant "Encryption (AES-GCM)" as Enc
+participant "Secret Sharing" as Split
+participant "HMAC" as HMAC
+participant "Token Wrapper (AES-CTR + Base64)" as Wrap
+database "Container .tvlt" as Container
+
+User -> App : select folder with files
+User -> App : enter container password
+User -> App : set token password
+User -> App : choose sharing rule\n(example: 3 of 5)
+
+== Container encryption ==
+
+App -> App : pack files into archive
+App -> App : generate random salt
+
+App -> KDF : derive key(container password, salt)
+KDF --> App : Main Encryption Key
+
+App -> Enc : encrypt archive with Main Key
+Enc --> App : encrypted payload
+
+App -> Container : write header\n(salt, access = share tokens,\nshares = 5, threshold = 3, integrity = HMAC)
+App -> Container : write metadata
+App -> Container : write encrypted payload
+
+== Key splitting ==
+
+App -> Split : split Main Key into 5 shares\n(any 3 can restore it)
+Split --> App : shares [1..5]
+
+App -> KDF : derive key(token password, salt)
+KDF --> App : Token Encryption Key
+
+== Share Token creation ==
+
+loop for each share
+  App -> HMAC : sign(share id + share value)\nusing token password
+  HMAC --> App : signature
+
+  App -> App : build token data\n{ v: version, id: share id,\n vl: share value, s: signature }
+
+  App -> Wrap : encrypt token data with Token Key (AES-CTR)
+  Wrap -> Wrap : encode result as Base64
+  Wrap --> App : Share Token
+end
+
+App --> User : container + 5 Share Tokens
+
+note over User, Container
+Each Share Token contains:
+  v  = token version
+  id = share number
+  vl = one part of the Main Key
+  s  = HMAC signature of this part
+
+One token alone cannot open the container.
+Any 3 valid tokens (of 5) restore the Main Key.
+HMAC detects modified or fake tokens.
+end note
+@enduml

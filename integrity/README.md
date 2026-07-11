@@ -19,7 +19,7 @@ Uses HMAC (Hash-based Message Authentication Code) with SHA-256 for integrity ve
 Suitable for most use cases and provides a good balance between security and performance.
 
 ### ED25519 Provider
-Implements cryptographic signatures using ED25519, offering stronger security guarantees through public key cryptography.
+Reserved for cryptographic signatures using ED25519, offering stronger security guarantees through public key cryptography. Not yet implemented — the provider is defined but its `Sign`/`IsVerify` methods currently panic.
 
 ### None Provider
 A no-op provider that performs no integrity checks. Only suitable for testing or when integrity verification is handled externally.
