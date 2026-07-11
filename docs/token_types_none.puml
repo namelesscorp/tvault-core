@@ -1,0 +1,35 @@
+@startuml
+title Password-only: Container Creation
+
+actor User
+participant "Application" as App
+participant "Key Derivation" as KDF
+participant "Encryption (AES-GCM)" as Enc
+database "Container .tvlt" as Container
+
+User -> App : select folder with files
+User -> App : enter container password
+
+App -> App : pack files into archive
+
+App -> App : generate random salt
+App -> KDF : derive key(container password, salt)
+KDF --> App : Main Encryption Key
+
+App -> Enc : encrypt archive with Main Key
+Enc --> App : encrypted payload
+
+App -> Container : write header\n(salt, settings, access = password-only)
+App -> Container : write metadata\n(name, dates, comment, tags)
+App -> Container : write encrypted payload
+
+App --> User : container created
+
+note over User, Container
+No token is created.
+
+To open the container later, the user enters
+the same password, and the Main Key
+is derived again from it.
+end note
+@enduml

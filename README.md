@@ -42,50 +42,7 @@ The system supports multiple mechanisms for storing and distributing encryption 
 
 ### Architecture
 
-```plantuml
-@startuml
-title Trust Vault — Secure Your Files
-
-skinparam defaultTextAlignment center
-skinparam shadowing false
-skinparam roundcorner 15
-left to right direction
-
-folder "Your Files" as Files
-card "Your Password" as Password
-
-rectangle "Trust Vault" as TVault #lightblue {
-  card "Compress"
-  card "Encrypt\nAES-256"
-  card "Protect Access"
-}
-
-database "Encrypted Container\n.tvlt" as Container #lightgreen
-
-rectangle "Access Keys" as Access #lightyellow {
-  card "Password\nsimple access"
-  card "Master Token\none protected key"
-  card "Share Tokens\nsplit key, e.g. 3 of 5"
-}
-
-Files --> TVault
-Password --> TVault
-
-TVault --> Container : protected data
-TVault --> Access : ways to open
-
-note bottom of Container
-Your files are stored encrypted.
-Nobody can read them without access.
-end note
-
-note bottom of Access
-Choose how the container is opened:
-just a password, a single token,
-or a key split between several people.
-end note
-@enduml
-```
+![Architecture](docs/description_architecture.svg)
 
 ## Key Features
 
@@ -286,67 +243,7 @@ The container information retrieval process:
 3. Extracts and formats information about the container configuration
 4. Outputs the information in the specified format (plaintext or JSON)
 
-```plantuml
-@startuml
-title What Is Stored Inside the Container
-
-database "Container .tvlt" as Container
-
-rectangle "Header\nTechnical Information" as Header {
-  card "Container Format"
-  card "Version"
-  card "Encryption Parameters"
-  card "Compression Type"
-  card "Access Method"
-  card "Integrity Check Type"
-  card "Token Sharing Settings"
-}
-
-rectangle "Metadata\nVisible Container Description" as Metadata {
-  card "Container Name"
-  card "Creation Date"
-  card "Update Date"
-  card "Comment"
-  card "Tags"
-  card "File Count"
-  card "Container Statistics"
-  card "Security Score"
-}
-
-rectangle "Encrypted Payload\nProtected Data" as Payload {
-  card "Encrypted Archive\nwith Files"
-}
-
-Container --> Header
-Container --> Metadata
-Container --> Payload
-
-note right of Header
-The header tells the application
-how the container should be opened
-and decrypted.
-
-It does not contain user files.
-end note
-
-note right of Metadata
-Metadata is visible information
-about the container.
-
-It helps identify and describe
-the container.
-end note
-
-note right of Payload
-The real files are stored here
-as an encrypted archive.
-
-This part cannot be read
-without the correct access data.
-end note
-
-@enduml
-```
+![core_components_container](docs/core_components_container.svg)
 
 Container info can be retrieved using the CLI:
 
@@ -371,177 +268,19 @@ TVault Core supports multiple token types:
 Encryption using only a password, without creating a separate token. 
 This method is simple to use but requires secure storage and transmission of the password.
 
-```plantuml
-@startuml
-title Password-only: Container Creation
-
-actor User
-participant "Application" as App
-participant "Key Derivation" as KDF
-participant "Encryption (AES-GCM)" as Enc
-database "Container .tvlt" as Container
-
-User -> App : select folder with files
-User -> App : enter container password
-
-App -> App : pack files into archive
-
-App -> App : generate random salt
-App -> KDF : derive key(container password, salt)
-KDF --> App : Main Encryption Key
-
-App -> Enc : encrypt archive with Main Key
-Enc --> App : encrypted payload
-
-App -> Container : write header\n(salt, settings, access = password-only)
-App -> Container : write metadata\n(name, dates, comment, tags)
-App -> Container : write encrypted payload
-
-App --> User : container created
-
-note over User, Container
-No token is created.
-
-To open the container later, the user enters
-the same password, and the Main Key
-is derived again from it.
-end note
-@enduml
-```
+![token_types_none](docs/token_types_none.svg)
 
 ### Master Type
 A single token containing the master key, encrypted using a password. 
 This approach provides an additional layer of security by separating the key and password.
 
-```plantuml
-@startuml
-title Master Token: Container Creation and Token Wrapping
-
-actor User
-participant "Application" as App
-participant "Key Derivation" as KDF
-participant "Encryption (AES-GCM)" as Enc
-participant "Token Wrapper (AES-CTR + Base64)" as Wrap
-database "Container .tvlt" as Container
-
-User -> App : select folder with files
-User -> App : enter container password
-User -> App : set token password
-
-== Container encryption ==
-
-App -> App : pack files into archive
-App -> App : generate random salt
-
-App -> KDF : derive key(container password, salt)
-KDF --> App : Main Encryption Key
-
-App -> Enc : encrypt archive with Main Key
-Enc --> App : encrypted payload
-
-App -> Container : write header\n(salt, settings, access = master token)
-App -> Container : write metadata
-App -> Container : write encrypted payload
-
-== Master Token creation ==
-
-App -> KDF : derive key(token password, salt)
-KDF --> App : Token Encryption Key
-
-App -> App : build token data\n{ v: version, vl: Main Encryption Key }
-
-App -> Wrap : encrypt token data with Token Key (AES-CTR)
-Wrap -> Wrap : encode result as Base64
-Wrap --> App : Master Token
-
-App --> User : container + Master Token
-
-note over User, Container
-Master Token contains:
-  v  = token version
-  vl = full Main Encryption Key
-
-Fields id and s are not used.
-
-To open the container, the user needs:
-container file + Master Token + token password.
-end note
-@enduml
-```
+![token_types_master](docs/token_types_master.svg)
 
 ### Share Type
 Multiple tokens using Shamir's Secret Sharing scheme.
 This method allows distributing access among multiple participants, requiring a certain number of tokens to decrypt the data.
 
-```plantuml
-@startuml
-title Share Tokens: Container Creation, Key Splitting and HMAC
-
-actor User
-participant "Application" as App
-participant "Key Derivation" as KDF
-participant "Encryption (AES-GCM)" as Enc
-participant "Secret Sharing" as Split
-participant "HMAC" as HMAC
-participant "Token Wrapper (AES-CTR + Base64)" as Wrap
-database "Container .tvlt" as Container
-
-User -> App : select folder with files
-User -> App : enter container password
-User -> App : set token password
-User -> App : choose sharing rule\n(example: 3 of 5)
-
-== Container encryption ==
-
-App -> App : pack files into archive
-App -> App : generate random salt
-
-App -> KDF : derive key(container password, salt)
-KDF --> App : Main Encryption Key
-
-App -> Enc : encrypt archive with Main Key
-Enc --> App : encrypted payload
-
-App -> Container : write header\n(salt, access = share tokens,\nshares = 5, threshold = 3, integrity = HMAC)
-App -> Container : write metadata
-App -> Container : write encrypted payload
-
-== Key splitting ==
-
-App -> Split : split Main Key into 5 shares\n(any 3 can restore it)
-Split --> App : shares [1..5]
-
-App -> KDF : derive key(token password, salt)
-KDF --> App : Token Encryption Key
-
-== Share Token creation ==
-
-loop for each share
-  App -> HMAC : sign(share id + share value)\nusing token password
-  HMAC --> App : signature
-
-  App -> App : build token data\n{ v: version, id: share id,\n vl: share value, s: signature }
-
-  App -> Wrap : encrypt token data with Token Key (AES-CTR)
-  Wrap -> Wrap : encode result as Base64
-  Wrap --> App : Share Token
-end
-
-App --> User : container + 5 Share Tokens
-
-note over User, Container
-Each Share Token contains:
-  v  = token version
-  id = share number
-  vl = one part of the Main Key
-  s  = HMAC signature of this part
-
-One token alone cannot open the container.
-Any 3 valid tokens (of 5) restore the Main Key.
-HMAC detects modified or fake tokens.
-end note
-@enduml
-```
+![token_types_share](docs/token_types_share.svg)
 
 ### Command
 
@@ -656,4 +395,4 @@ If you have questions or issues, please create an Issue in the repository or con
 
 ---
 
-© 2025 Trust Vault. All rights reserved.
+© 2026 Trust Vault. All rights reserved.

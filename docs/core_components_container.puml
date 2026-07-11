@@ -1,0 +1,59 @@
+@startuml
+title What Is Stored Inside the Container
+
+database "Container .tvlt" as Container
+
+rectangle "Header\nTechnical Information" as Header {
+  card "Container Format"
+  card "Version"
+  card "Encryption Parameters"
+  card "Compression Type"
+  card "Access Method"
+  card "Integrity Check Type"
+  card "Token Sharing Settings"
+}
+
+rectangle "Metadata\nVisible Container Description" as Metadata {
+  card "Container Name"
+  card "Creation Date"
+  card "Update Date"
+  card "Comment"
+  card "Tags"
+  card "File Count"
+  card "Container Statistics"
+  card "Security Score"
+}
+
+rectangle "Encrypted Payload\nProtected Data" as Payload {
+  card "Encrypted Archive\nwith Files"
+}
+
+Container --> Header
+Container --> Metadata
+Container --> Payload
+
+note right of Header
+The header tells the application
+how the container should be opened
+and decrypted.
+
+It does not contain user files.
+end note
+
+note right of Metadata
+Metadata is visible information
+about the container.
+
+It helps identify and describe
+the container.
+end note
+
+note right of Payload
+The real files are stored here
+as an encrypted archive.
+
+This part cannot be read
+without the correct access data.
+end note
+
+@enduml

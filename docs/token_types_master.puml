@@ -1,0 +1,53 @@
+@startuml
+title Master Token: Container Creation and Token Wrapping
+
+actor User
+participant "Application" as App
+participant "Key Derivation" as KDF
+participant "Encryption (AES-GCM)" as Enc
+participant "Token Wrapper (AES-CTR + Base64)" as Wrap
+database "Container .tvlt" as Container
+
+User -> App : select folder with files
+User -> App : enter container password
+User -> App : set token password
+
+== Container encryption ==
+
+App -> App : pack files into archive
+App -> App : generate random salt
+
+App -> KDF : derive key(container password, salt)
+KDF --> App : Main Encryption Key
+
+App -> Enc : encrypt archive with Main Key
+Enc --> App : encrypted payload
+
+App -> Container : write header\n(salt, settings, access = master token)
+App -> Container : write metadata
+App -> Container : write encrypted payload
+
+== Master Token creation ==
+
+App -> KDF : derive key(token password, salt)
+KDF --> App : Token Encryption Key
+
+App -> App : build token data\n{ v: version, vl: Main Encryption Key }
+
+App -> Wrap : encrypt token data with Token Key (AES-CTR)
+Wrap -> Wrap : encode result as Base64
+Wrap --> App : Master Token
+
+App --> User : container + Master Token
+
+note over User, Container
+Master Token contains:
+  v  = token version
+  vl = full Main Encryption Key
+
+Fields id and s are not used.
+
+To open the container, the user needs:
+container file + Master Token + token password.
+end note
+@enduml

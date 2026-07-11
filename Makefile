@@ -18,3 +18,6 @@ clean:
 	rm -f *.log
 	rm -f *.json
 	rm -f *.txt
+
+uml:
+	plantuml -tsvg docs/*.puml
