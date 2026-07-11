@@ -47,9 +47,9 @@ The `PBKDF2Key` function is used to stretch the key and create a master key of t
 ### Command-Line Usage
 
 ```shell
-tvault container \
+tvault-core container \
 info \
-  -path="/path/to/container/file"
+  -path="/path/to/container/file" \
 info-writer \
   -type="file" \
   -format="json" \
@@ -75,11 +75,16 @@ log-writer \
   "shares": 5,
   "threshold": 3,
   "file_count": 2,
-  "compressed_size": -1,
+  "compressed_size": 5321,
   "uncompressed_size": 6152,
   "security_score": 0.65
 }
 ```
+
+`compressed_size` is the size of the compressed archive in bytes. It is not
+known until the whole payload has been streamed, so it is patched into the
+plaintext metadata once writing completes (the field is reserved at maximum
+width up front so the metadata length never changes).
 
 ## Security
 
@@ -90,3 +95,4 @@ The container provides the following security measures:
 - Random nonce for each container
 - Shamir's Secret Sharing scheme for splitting sensitive data
 - Metadata is stored in plaintext but does not contain sensitive information
+- Hostile-input hardening on read: the metadata length is capped at 1 MiB and each declared chunk length at 64 MiB, so a malformed header cannot force a huge allocation before any bytes are read

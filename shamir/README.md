@@ -32,6 +32,7 @@ For efficient calculations in the GF(2^8) field, exponent and logarithm tables a
 - The implementation provides information-theoretic security according to Shamir's scheme
 - The threshold scheme ensures that any number of shares less than the threshold `t` provides no information about the secret
 - Integration with integrity providers prevents share modification attacks
+- `Combine` validates the supplied shares before interpolation and returns an error (never panics) on malformed input from untrusted tokens: a share `id` of `0` (reserved for the secret), a duplicate `id` (which would otherwise cause a division-by-zero in Lagrange interpolation), or shares whose values differ in length
 
 ## Limitations
 

@@ -11,72 +11,26 @@ const (
 )
 
 var Types = map[string]struct{}{
-	TypeNameZip: {},
+	TypeNameNone: {},
+	TypeNameZip:  {},
 }
 
-type (
-	Compression interface {
-		Pack(folder string) ([]byte, error)
-		Unpack(data []byte, targetDir string) error
+// Compression bundles a folder into a single stream and back. Both supported
+// types ("zip" and "none") are produced by the zip package: "zip" deflates
+// entries, "none" stores them uncompressed (see zip.New / zip.NewStore).
+type Compression interface {
+	Pack(folder string) ([]byte, error)
+	Unpack(data []byte, targetDir string) error
 
-		PackTo(folder string, w io.Writer) error
-		UnpackFrom(r io.ReaderAt, size int64, targetDir string) error
+	PackTo(folder string, w io.Writer) error
+	UnpackFrom(r io.ReaderAt, size int64, targetDir string) error
 
-		ID() byte
-		GetUncompressedSize() int64
-		GetCompressedSize() int64
-		GetCompressedData() []byte
-		GetFileCount() int64
-		GetFileNameList() []string
-	}
-
-	noneCompression struct{}
-)
-
-func NewNoneCompression() Compression {
-	return &noneCompression{}
-}
-
-// Pack - unimplemented
-func (n noneCompression) Pack(_ string) ([]byte, error) {
-	panic("not implemented")
-}
-
-// Unpack - unimplemented
-func (n noneCompression) Unpack(_ []byte, _ string) error {
-	panic("not implemented")
-}
-
-func (n noneCompression) PackTo(_ string, _ io.Writer) error {
-	panic("not implemented")
-}
-
-func (n noneCompression) UnpackFrom(_ io.ReaderAt, _ int64, _ string) error {
-	panic("not implemented")
-}
-
-func (n noneCompression) ID() byte {
-	return TypeNone
-}
-
-func (n noneCompression) GetUncompressedSize() int64 {
-	panic("not implemented")
-}
-
-func (n noneCompression) GetCompressedSize() int64 {
-	panic("not implemented")
-}
-
-func (n noneCompression) GetCompressedData() []byte {
-	panic("not implemented")
-}
-
-func (n noneCompression) GetFileCount() int64 {
-	panic("not implemented")
-}
-
-func (n noneCompression) GetFileNameList() []string {
-	panic("not implemented")
+	ID() byte
+	GetUncompressedSize() int64
+	GetCompressedSize() int64
+	GetCompressedData() []byte
+	GetFileCount() int64
+	GetFileNameList() []string
 }
 
 func ConvertIDToName(id byte) string {

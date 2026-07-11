@@ -5,6 +5,11 @@
 The `zip` package provides an implementation of the `compression.Compression` interface using the ZIP format for compressing and unpacking files.
 This implementation is built on top of Go's standard `archive/zip` library.
 
+## Constructors
+
+- `New()` — deflate-compressing packer (compression type `zip`); `ID()` returns `compression.TypeZip` (0x01).
+- `NewStore()` — packer that stores entries without compression (compression type `none`); `ID()` returns `compression.TypeNone` (0x00). The archive is still a valid ZIP, so unpacking is identical; only the deflate step is skipped, which is faster for large or already-compressed data.
+
 ## Functionality
 
 ### Compression (Pack)
@@ -45,6 +50,15 @@ The `UnpackFrom` method performs the following operations:
 
 This method is intended for streaming or file-backed scenarios, for example when ZIP data is read directly from a container payload or temporary file.
 
+### Single-walk packing (WalkFolder + PackEntriesTo)
+
+To avoid traversing the directory tree twice (once to gather metadata such as size/file count, and again to compress), the package exposes:
+
+- `WalkFolder(folder)` — walks the tree a single time and returns the entries to pack together with aggregate stats (uncompressed size, file count, file names).
+- `PackEntriesTo(entries, w)` — writes pre-walked entries into a ZIP stream without re-walking the tree.
+
+`PackTo` is implemented as `WalkFolder` followed by `PackEntriesTo`, so callers that already need the stats up front (e.g. `seal`, which writes metadata before the payload) can walk once and stream the same entries into the container.
+
 ### Identifier
 
-The `ID()` method returns the constant `compression.TypeZip` (0x01), which identifies this compression type in the system.
+The `ID()` method returns the compression type of the packer instance: `compression.TypeZip` (0x01) for `New`, or `compression.TypeNone` (0x00) for `NewStore`. This value is stored in the container header.

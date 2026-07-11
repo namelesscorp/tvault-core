@@ -15,6 +15,13 @@ const (
 
 	ChunkSize = 16 * 1024 * 1024 // 16 MiB
 
+	// MaxChunkSize is the upper bound on a single plaintext chunk length
+	// accepted when decrypting. The writer uses ChunkSize (16 MiB); this leaves
+	// generous headroom while preventing a hostile container from declaring a
+	// multi-gigabyte chunk length (plainLen is an attacker-controlled uint32)
+	// and forcing a huge allocation before the bytes are read from disk.
+	MaxChunkSize = 64 * 1024 * 1024 // 64 MiB
+
 	// MaxMetadataSize is the upper bound on the plaintext metadata length
 	// accepted when reading a container. The metadata is a small JSON struct,
 	// so 1 MiB is far more than any legitimate container needs. The cap

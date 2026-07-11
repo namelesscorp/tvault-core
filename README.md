@@ -343,8 +343,9 @@ Decompression Process:
 
 ### None
 
-The no-compression mode is included in the system architecture but is not currently implemented.
-In future versions, it may be added for scenarios where compression is not required or might be detrimental (such as for already compressed data).
+The no-compression mode stores files in a ZIP archive using the `Store` method, without applying deflate.
+The archive structure is preserved so unpacking is identical to the Zip mode, but the CPU-heavy compression step is skipped.
+This is faster and avoids wasted effort for scenarios where compression is not required or might be detrimental, such as already-compressed data (media, archives).
 
 ### Zip
 

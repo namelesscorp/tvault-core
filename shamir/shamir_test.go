@@ -192,3 +192,55 @@ func TestCombine(t *testing.T) {
 		})
 	}
 }
+
+// TestCombineRejectsMalformedShares checks that malformed share sets from
+// untrusted tokens produce errors rather than panics (division-by-zero on
+// duplicate ids, index-out-of-range on mismatched value lengths).
+func TestCombineRejectsMalformedShares(t *testing.T) {
+	p := integrity.NewNoneProvider()
+
+	build := func(t *testing.T) []Share {
+		t.Helper()
+		shares, err := Split([]byte("this-is-a-32-byte-master-key!!!!"), 5, 3, p)
+		if err != nil {
+			t.Fatalf("Split failed: %v", err)
+		}
+		return shares
+	}
+
+	t.Run("threshold subset round-trips", func(t *testing.T) {
+		shares := build(t)
+		got, err := Combine([]Share{shares[0], shares[2], shares[4]}, p)
+		if err != nil {
+			t.Fatalf("Combine failed: %v", err)
+		}
+		if !bytes.Equal(got, []byte("this-is-a-32-byte-master-key!!!!")) {
+			t.Fatalf("round-trip mismatch: %q", got)
+		}
+	})
+
+	t.Run("duplicate id returns error not panic", func(t *testing.T) {
+		shares := build(t)
+		if _, err := Combine([]Share{shares[0], shares[0], shares[1]}, p); err == nil {
+			t.Fatal("expected error for duplicate share id, got nil")
+		}
+	})
+
+	t.Run("zero id returns error not panic", func(t *testing.T) {
+		shares := build(t)
+		zero := shares[0]
+		zero.ID = 0
+		if _, err := Combine([]Share{zero, shares[1], shares[2]}, p); err == nil {
+			t.Fatal("expected error for zero share id, got nil")
+		}
+	})
+
+	t.Run("mismatched value length returns error not panic", func(t *testing.T) {
+		shares := build(t)
+		short := shares[1]
+		short.Value = short.Value[:len(short.Value)-1]
+		if _, err := Combine([]Share{shares[0], short, shares[2]}, p); err == nil {
+			t.Fatal("expected error for mismatched share length, got nil")
+		}
+	})
+}

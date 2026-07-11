@@ -21,6 +21,26 @@ All notable changes to this project will be documented in this file.
 
 ## Tags
 
+### [v1.0.1](https://github.com/namelesscorp/tvault-core/releases/tag/v1.0.1) - 2026-07-12
+
+#### Added
+
+- `none` compression type that stores files in a ZIP archive without deflate, for faster handling of large or already-compressed data; added to the set of valid CLI compression types.
+
+#### Changed
+
+- Increased large-file container encryption throughput by coalescing the many small reads from the compression pipe into full chunks and reusing the AES-GCM ciphertext buffer, reducing per-chunk allocations and framing overhead.
+- Container decryption now reuses the ciphertext and plaintext buffers across chunks instead of allocating on every chunk.
+- Directory compression now walks the source tree a single time, shared between metadata collection and packing, instead of walking it twice.
+- Removed the unused placeholder `noneCompression` implementation and `NewNoneCompression` constructor now that `none` is a real compression type.
+
+#### Fixed
+
+- Fixed container `compressed_size` metadata always being written as `-1`; the real compressed size is now recorded by patching it into the metadata after the payload is streamed.
+- Fixed decryption trusting the per-chunk plaintext length from the container before allocating; each declared chunk length is now capped at 64 MiB to prevent hostile allocations.
+- Fixed Shamir secret reconstruction (`Combine`) panicking on malformed shares from untrusted tokens — duplicate or zero share IDs (division by zero) and mismatched share value lengths (index out of range) — which now return errors.
+- Fixed package documentation inaccuracies: `none` compression availability, container header layout (chunk-size field and offsets) and CLI examples, HMAC/Shamir/integrity provider details, and JSON field names.
+
 ### [v1.0.0](https://github.com/namelesscorp/tvault-core/releases/tag/v1.0.0) - 2026-07-12
 
 #### Added

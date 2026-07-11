@@ -3,6 +3,7 @@ package container
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -116,6 +117,88 @@ func TestContainer(t *testing.T) {
 		cont := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
 		if err = cont.Read(); err == nil {
 			t.Fatal("Expected Read to reject oversized metadata size, got nil error")
+		}
+	})
+
+	t.Run("compressed size is recorded", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "container_size_*.tvlt")
+		if err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+		defer func(name string) { _ = os.Remove(name) }(tempFile.Name())
+		_ = tempFile.Close()
+
+		header, err := NewHeader(1, 1, 1, 3, 2)
+		if err != nil {
+			t.Fatalf("Failed to create header: %v", err)
+		}
+
+		payload := bytes.Repeat([]byte("x"), 40000)
+		cont := NewContainer(tempFile.Name(), nil, Metadata{Comment: "size"}, header)
+		if err = cont.WriteEncrypted(bytes.NewReader(payload), []byte("pw")); err != nil {
+			t.Fatalf("Failed to write container: %v", err)
+		}
+
+		// In-memory metadata is patched to the real compressed size.
+		if got := cont.GetMetadata().CompressedSize; got != int64(len(payload)) {
+			t.Errorf("Expected in-memory CompressedSize %d, got %d", len(payload), got)
+		}
+
+		// And it must persist / round-trip through Read (metadata stays valid JSON
+		// despite the space padding used to keep MetadataSize constant).
+		rc := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
+		if err = rc.Read(); err != nil {
+			t.Fatalf("Failed to read container: %v", err)
+		}
+		if got := rc.GetMetadata().CompressedSize; got != int64(len(payload)) {
+			t.Errorf("Expected persisted CompressedSize %d, got %d", len(payload), got)
+		}
+		if rc.GetMetadata().Comment != "size" {
+			t.Errorf("Metadata did not round-trip: comment = %q", rc.GetMetadata().Comment)
+		}
+	})
+
+	t.Run("decrypt rejects oversized chunk size", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "container_chunk_*.tvlt")
+		if err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+		defer func(name string) { _ = os.Remove(name) }(tempFile.Name())
+		_ = tempFile.Close()
+
+		header, err := NewHeader(1, 1, 1, 3, 2)
+		if err != nil {
+			t.Fatalf("Failed to create header: %v", err)
+		}
+
+		cont := NewContainer(tempFile.Name(), nil, Metadata{Comment: "chunk"}, header)
+		if err = cont.WriteEncrypted(bytes.NewReader([]byte("some payload data")), []byte("pass")); err != nil {
+			t.Fatalf("Failed to write container: %v", err)
+		}
+		masterKey := cont.GetMasterKey()
+
+		// Reopen to load the on-disk header, then overwrite the first chunk's
+		// length prefix with a value beyond MaxChunkSize to simulate a hostile
+		// container. Decrypt must reject it before allocating.
+		rc := NewContainer(tempFile.Name(), nil, Metadata{}, Header{})
+		if err = rc.Read(); err != nil {
+			t.Fatalf("Failed to read container: %v", err)
+		}
+
+		f, err := os.OpenFile(tempFile.Name(), os.O_WRONLY, 0o600)
+		if err != nil {
+			t.Fatalf("Failed to open for corruption: %v", err)
+		}
+		payloadOffset := int64(binary.Size(Header{})) + int64(rc.GetHeader().MetadataSize)
+		var lenBuf [4]byte
+		binary.LittleEndian.PutUint32(lenBuf[:], MaxChunkSize+1)
+		if _, err = f.WriteAt(lenBuf[:], payloadOffset); err != nil {
+			t.Fatalf("Failed to write oversized chunk length: %v", err)
+		}
+		_ = f.Close()
+
+		if err = rc.DecryptTo(io.Discard, masterKey); err == nil {
+			t.Fatal("Expected DecryptTo to reject oversized chunk size, got nil error")
 		}
 	})
 

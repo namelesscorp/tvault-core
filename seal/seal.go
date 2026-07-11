@@ -5,10 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -100,13 +97,22 @@ func Seal(options Options) error {
 	return nil
 }
 
+// entriesPacker is implemented by compressors that can pack a pre-walked entry
+// list, letting the caller reuse a single filesystem walk for both stats and
+// packing instead of walking twice.
+type entriesPacker interface {
+	PackEntriesTo(entries []zip.Entry, w io.Writer) error
+}
+
 // newCompressor - select compressor instance by type
 func newCompressor(compressionType string) (compression.Compression, error) {
 	switch compressionType {
 	case compression.TypeNameZip:
 		return zip.New(), nil
 	case compression.TypeNameNone:
-		return nil, lib.ErrNoneCompressionUnimplemented
+		// "none" still produces a zip archive (so unseal reads it unchanged) but
+		// stores entries without deflate — faster for large/incompressible data.
+		return zip.NewStore(), nil
 	default:
 		return nil, lib.ErrUnknownCompressionType
 	}
@@ -155,7 +161,10 @@ func CreateContainer(
 		}
 	}
 
-	uncompressedSize, fileCount, fileNameList, err := collectFolderStats(folderPath)
+	// Walk the folder once: the returned stats populate the metadata/security
+	// score (written before the payload), and the returned entries are handed to
+	// the packer below so the tree is not walked a second time to compress it.
+	entries, uncompressedSize, fileCount, fileNameList, err := zip.WalkFolder(folderPath)
 	if err != nil {
 		return nil, nil, lib.IOErr(
 			lib.CategorySeal,
@@ -181,12 +190,13 @@ func CreateContainer(
 		*containerOpts.NewPath,
 		nil,
 		container.Metadata{
-			Name:             containerName,
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
-			Comment:          *containerOpts.Comment,
-			Tags:             lib.ParseTags(*containerOpts.Tags),
-			CompressedSize:   -1,
+			Name:      containerName,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Comment:   *containerOpts.Comment,
+			Tags:      lib.ParseTags(*containerOpts.Tags),
+			// CompressedSize is filled in by WriteEncrypted once the payload is
+			// streamed (it equals the number of compressed bytes consumed).
 			UncompressedSize: uncompressedSize,
 			FileCount:        fileCount,
 			SecurityScore:    secScore.Calculate(),
@@ -200,9 +210,18 @@ func CreateContainer(
 	go func() {
 		defer func() { _ = pw.Close() }()
 
-		if err := comp.PackTo(folderPath, pw); err != nil {
-			_ = pw.CloseWithError(err)
-			packErrCh <- err
+		// Reuse the entries already collected by WalkFolder above; fall back to a
+		// fresh walk only if the compressor cannot pack pre-walked entries.
+		var packErr error
+		if packer, ok := comp.(entriesPacker); ok {
+			packErr = packer.PackEntriesTo(entries, pw)
+		} else {
+			packErr = comp.PackTo(folderPath, pw)
+		}
+
+		if packErr != nil {
+			_ = pw.CloseWithError(packErr)
+			packErrCh <- packErr
 
 			return
 		}
@@ -235,50 +254,6 @@ func CreateContainer(
 
 	var containerHeaderSalt = cont.GetHeader().Salt
 	return cont.GetMasterKey(), containerHeaderSalt[:], nil
-}
-
-// collectFolderStats - get file count, uncompressed size, file name list
-func collectFolderStats(folder string) (uncompressedSize int64, fileCount int64, fileNameList []string, err error) {
-	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, walkErr error) error {
-		switch {
-		case walkErr != nil:
-			return walkErr
-		case d.IsDir():
-			return nil
-		}
-
-		fi, infoErr := d.Info()
-		if infoErr != nil {
-			return infoErr
-		}
-
-		mode := fi.Mode()
-
-		if mode&os.ModeSymlink != 0 {
-			target, readlinkErr := os.Readlink(path)
-			if readlinkErr != nil {
-				return readlinkErr
-			}
-
-			uncompressedSize += int64(len(target))
-			fileCount++
-			fileNameList = append(fileNameList, fi.Name())
-
-			return nil
-		}
-
-		if !mode.IsRegular() {
-			return nil
-		}
-
-		uncompressedSize += fi.Size()
-		fileCount++
-		fileNameList = append(fileNameList, fi.Name())
-
-		return nil
-	})
-
-	return uncompressedSize, fileCount, fileNameList, err
 }
 
 // CreateIntegrityProviderWithNewPassphrase - creates a new integrity provider based on the specified type and new passphrase.

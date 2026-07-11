@@ -95,6 +95,7 @@ const (
 	ErrCodeJSONUnmarshalMetadataError ErrorCode = 0x0052
 	ErrCodeReadCipherTextError        ErrorCode = 0x0053
 	ErrCodeOpenCipherTextError        ErrorCode = 0x0054
+	ErrCodeChunkSizeExceedsError      ErrorCode = 0x009A
 
 	ErrCodeTokenMarshalJSONError   ErrorCode = 0x0055
 	ErrCodeTokenUnmarshalJSONError ErrorCode = 0x0056
@@ -106,6 +107,8 @@ const (
 	ErrCodeShamirSignShareError           ErrorCode = 0x0061
 	ErrCodeShamirVerifySignatureError     ErrorCode = 0x0062
 	ErrCodeShamirVerifySignatureFailed    ErrorCode = 0x0063
+	ErrCodeShamirDuplicateShareID         ErrorCode = 0x009B
+	ErrCodeShamirShareLengthMismatch      ErrorCode = 0x009C
 
 	ErrCodeUnsealOpenContainerError        ErrorCode = 0x0064
 	ErrCodeUnsealGetTokenStringError       ErrorCode = 0x0065
@@ -131,7 +134,6 @@ const (
 	ErrCodeSealCompressionPackError                   ErrorCode = 0x0084
 	ErrCodeSealCreateContainerHeaderError             ErrorCode = 0x0085
 	ErrCodeSealEncryptContainerError                  ErrorCode = 0x0086
-	ErrCodeSealWriteContainerError                    ErrorCode = 0x0087
 	ErrCodeSealShamirSplitError                       ErrorCode = 0x0088
 	ErrCodeSealWriteTokensShareError                  ErrorCode = 0x0089
 	ErrCodeSealBuildShareTokenError                   ErrorCode = 0x0090
@@ -196,6 +198,7 @@ const (
 	ErrMessageContainerOpenFileError     = "open file error"
 	ErrMessageJSONMarshalMetadataError   = "json marshal metadata error"
 	ErrMessageMetadataSizeExceedsError   = "metadata size exceeds maximum allowed"
+	ErrMessageChunkSizeExceedsError      = "chunk size exceeds maximum allowed"
 	ErrMessageWriteHeaderBinaryError     = "write header binary error"
 	ErrMessageWriteMetadataError         = "write metadata error"
 	ErrMessageWriteCipherTextError       = "write cipher text error"
@@ -218,6 +221,8 @@ const (
 	ErrMessageShamirSignShareError           = "sign share error"
 	ErrMessageShamirVerifySignatureError     = "verify share signature error"
 	ErrMessageShamirVerifySignatureFailed    = "verify share signature failed"
+	ErrMessageShamirDuplicateShareID         = "duplicate or invalid share id"
+	ErrMessageShamirShareLengthMismatch      = "share value lengths do not match"
 
 	ErrMessageUnsealOpenContainerError        = "open container error"
 	ErrMessageUnsealGetTokenStringError       = "get token string error"
@@ -243,7 +248,6 @@ const (
 	ErrMessageSealCompressionPackError                   = "compression pack error"
 	ErrMessageSealCreateContainerHeaderError             = "create container header error"
 	ErrMessageSealEncryptContainerError                  = "encrypt container error"
-	ErrMessageSealWriteContainerError                    = "write container error"
 	ErrMessageSealShamirSplitError                       = "shamir split error"
 	ErrMessageSealWriteTokensShareError                  = "write tokens (share) error" // #nosec G101
 	ErrMessageSealBuildShareTokenError                   = "build token (share) error"  // #nosec G101
@@ -444,12 +448,11 @@ var errorToCode = map[error]ErrorCode{
 
 // Internal errors
 var (
-	ErrEmptyShares                  = errors.New("shares list is empty")
-	ErrUnknownCompressionType       = errors.New("unknown compression type")
-	ErrNoneCompressionUnimplemented = errors.New("compression type none unimplemented")
-	ErrUnknownIntegrityProvider     = errors.New("unknown integrity provider")
-	ErrEd25519Unimplemented         = errors.New("integrity provider ed25519 unimplemented")
-	ErrTypeAssertionFailed          = errors.New("type assertion failed")
+	ErrEmptyShares              = errors.New("shares list is empty")
+	ErrUnknownCompressionType   = errors.New("unknown compression type")
+	ErrUnknownIntegrityProvider = errors.New("unknown integrity provider")
+	ErrEd25519Unimplemented     = errors.New("integrity provider ed25519 unimplemented")
+	ErrTypeAssertionFailed      = errors.New("type assertion failed")
 
 	ErrUnknownWriterFormat = errors.New("unknown writer format")
 	ErrUnknownWriterType   = errors.New("unknown writer type")

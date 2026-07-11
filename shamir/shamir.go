@@ -96,8 +96,43 @@ func Combine(shares []Share, provider integrity.Provider) ([]byte, error) {
 	var (
 		length = len(shares[0].Value)
 		res    = make([]byte, length)
+		seen   = make(map[byte]struct{}, len(shares))
 	)
 	for _, sh := range shares {
+		// Shares come from user-supplied tokens. Reject malformed sets before
+		// interpolation: an id of 0 is reserved for the secret, a repeated id
+		// makes a Lagrange denominator zero (division-by-zero panic), and a
+		// value of a different length than the first indexes out of range.
+		if sh.ID == 0 {
+			return nil, lib.FormatErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirDuplicateShareID,
+				lib.ErrMessageShamirDuplicateShareID,
+				"",
+				nil,
+			)
+		}
+		if _, dup := seen[sh.ID]; dup {
+			return nil, lib.FormatErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirDuplicateShareID,
+				lib.ErrMessageShamirDuplicateShareID,
+				"",
+				nil,
+			)
+		}
+		seen[sh.ID] = struct{}{}
+
+		if len(sh.Value) != length {
+			return nil, lib.FormatErr(
+				lib.CategoryShamir,
+				lib.ErrCodeShamirShareLengthMismatch,
+				lib.ErrMessageShamirShareLengthMismatch,
+				"",
+				nil,
+			)
+		}
+
 		isVerify, err := provider.IsVerify(sh.ID, sh.Value, sh.Signature)
 		if err != nil {
 			return nil, lib.CryptoErr(

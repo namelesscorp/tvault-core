@@ -143,8 +143,8 @@ Command: log-writer
 
 ## Supported Compression Types
 
-- `zip`: Standard ZIP compression
-- `none`: No compression (not yet implemented)
+- `zip`: Standard ZIP compression (deflate)
+- `none`: No compression — files are stored in a ZIP archive without deflate; faster for large or already-compressed data
 
 ## Supported Token Save Types
 
