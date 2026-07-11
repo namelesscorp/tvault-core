@@ -283,7 +283,9 @@ func writeContainerAtomic(cont container.Container, zipPath, targetPath string) 
 		}
 	}()
 
-	zf, err := os.Open(zipPath)
+	// zipPath is not user input: it is always the name of a temp file created by
+	// compressFolderForReseal via os.CreateTemp, so there is no traversal risk.
+	zf, err := os.Open(zipPath) // #nosec G304
 	if err != nil {
 		return lib.IOErr(lib.CategoryReseal, lib.ErrCodeResealEncryptContainerError, lib.ErrMessageResealEncryptContainerError, "", err)
 	}
