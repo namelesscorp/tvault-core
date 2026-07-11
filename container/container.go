@@ -140,9 +140,13 @@ func (c *container) WriteEncrypted(r io.Reader, key []byte) error {
 			nonce := c.header.Nonce
 			binary.LittleEndian.PutUint64(nonce[4:], counter)
 
-			cipherChunk := aesGcm.Seal(nil, nonce[:], plainBuf[:n], nil)
+			// nonce is a random prefix (crypto/rand, see header.Nonce) combined
+			// with a per-chunk counter, so it is unique per chunk and not hardcoded.
+			cipherChunk := aesGcm.Seal(nil, nonce[:], plainBuf[:n], nil) // #nosec G407
 
-			if err := binary.Write(f, binary.LittleEndian, uint32(n)); err != nil { // #nosec G115
+			// n is the number of bytes read into plainBuf, so 0 <= n <= chunkSize <= math.MaxUint32.
+			chunkLen := uint32(n) // #nosec G115
+			if err := binary.Write(f, binary.LittleEndian, chunkLen); err != nil {
 				return lib.IOErr(lib.CategoryContainer, lib.ErrCodeWriteCipherTextError, lib.ErrMessageWriteCipherTextError, "", err)
 			}
 			if _, err := f.Write(cipherChunk); err != nil {

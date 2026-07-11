@@ -112,7 +112,8 @@ func Unseal(opts Options) error {
 		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
 	}
 
-	zf, err := os.Open(tmpPath)
+	// tmpPath comes from os.CreateTemp above, not from user-controlled input.
+	zf, err := os.Open(tmpPath) // #nosec G304
 	if err != nil {
 		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
 	}
