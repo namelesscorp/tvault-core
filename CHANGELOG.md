@@ -21,16 +21,49 @@ All notable changes to this project will be documented in this file.
 
 ## Tags
 
-### [v1.0.0](https://github.com/namelesscorp/tvault-core/)
+### [v1.0.0](https://github.com/namelesscorp/tvault-core/releases/tag/v1.0.0) - 2026-07-12
 
 #### Added
 
-- Init
+- Security score calculation based on token type, integrity provider, compression, Shamir configuration, passphrase strength, and sensitive file names.
+- Streaming ZIP compression and chunked AES-256-GCM container encryption to support large inputs without loading the complete archive into memory.
+- Container chunk size stored in the TVLT header for streaming decryption.
+- Compressed and uncompressed size, file count, file names, and security score metadata.
+- Atomic reseal writes for container and token files using temporary files, `fsync`, and rename.
+- Durable directory synchronization after atomic rename on Unix, with a platform-specific Windows implementation.
+- Authenticated AES-GCM token envelopes with a format marker, random nonce, ciphertext, and authentication tag.
+- Token tampering detection for the format marker, nonce, ciphertext, and authentication tag.
+- Token ID range validation before conversion to `byte`.
+- Maximum accepted container metadata size of 1 MiB to prevent hostile allocations.
+- Preservation of original token strings during reseal when the integrity-provider passphrase is not rotated.
+- Token re-issuance with the existing master key when the integrity-provider passphrase is rotated.
+- Non-zero CLI process exit codes for invalid usage, unknown commands, operation failures, and recovered panics.
+- Runtime profiling and signal-based debug profile collection.
+- Developer technical documentation, architecture diagrams, package documentation, and updated CLI examples.
+- CI jobs for race-enabled tests, coverage, linting, security scanning, benchmarks, and release binaries.
 
 #### Changed
 
-No changed
+- Updated the module and CI toolchain to Go 1.26.
+- Refactored `seal`, `unseal`, and `reseal` to use streaming temporary artifacts and explicit resource cleanup.
+- Changed encrypted token protection from unauthenticated AES-CTR to authenticated AES-GCM.
+- Changed reseal behavior to preserve tokens unless an integrity-provider passphrase rotation is requested.
+- Changed container writes to flush file contents before returning.
+- Changed the CLI entry point to return explicit success and failure exit codes.
+- Removed unused `GetCipherData` and `GetData` container methods that were incompatible with streaming operation.
+- Expanded typed error codes and messages for token authentication, metadata limits, file synchronization, and atomic reseal failures.
+- Updated project licensing, contribution documentation, package README files, examples, and security guidance.
 
 #### Fixed
 
-No fixed
+- Fixed token ciphertext malleability by authenticating the complete encrypted token envelope.
+- Fixed nonce/keystream reuse in token encryption by generating a fresh random AES-GCM nonce for every token.
+- Fixed reseal potentially truncating the original container before a replacement was fully written.
+- Fixed reseal potentially truncating an existing token file during output.
+- Fixed token regeneration on every reseal when no passphrase rotation was requested.
+- Fixed loss of the original container or token file when a write fails before atomic commit.
+- Fixed oversized `MetadataSize` values being trusted before memory allocation.
+- Fixed out-of-range token IDs being silently truncated during byte conversion.
+- Fixed CLI failures returning a successful process exit status.
+- Fixed ZIP path and symlink handling and resolved static-analysis findings around file access and integer conversions.
+- Fixed temporary-file cleanup and file-close handling across seal, unseal, and reseal error paths.

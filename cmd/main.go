@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	cliVersion = "v0.0.1"
+	cliVersion = "v1.0.0"
 
 	commandSeal      = "seal"
 	commandUnseal    = "unseal"
