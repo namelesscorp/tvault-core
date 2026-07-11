@@ -212,7 +212,7 @@ func CreateContainer(
 
 	if err = cont.WriteEncrypted(pr, []byte(*containerOpts.Passphrase)); err != nil {
 		_ = pr.Close()
-		_ = <-packErrCh
+		<-packErrCh
 
 		return nil, nil, lib.CryptoErr(
 			lib.CategorySeal,
