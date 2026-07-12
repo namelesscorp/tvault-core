@@ -51,6 +51,9 @@ The system supports multiple mechanisms for storing and distributing encryption 
 - **Robust Data Protection**: Using the AES-256 standard for encryption
 - **Directory Structure Preservation**: Complete preservation of file hierarchy during encryption
 - **Built-in Compression**: Reduction of encrypted container size
+- **Parallel Compression & Extraction**: Per-file deflate and unpacking are fanned out across CPU cores, so seal, unseal, and reseal on multi-file folders scale with the number of cores
+- **Streaming Pipeline**: Compression is piped directly into encryption (and back on unseal), so the archive is never fully staged on disk
+- **Progress Reporting**: Seal, unseal, and reseal emit `PROGRESS <percent>` lines (0–100) on stdout for a wrapping GUI to render a progress bar
 - **Container Metadata**: Storage of creation time, update information, user comments, etc.
 
 ### Advanced Key Management
@@ -330,14 +333,14 @@ The compression system is tightly integrated with other TVault Core components:
 Compression Process:
 1. **Algorithm Selection**: Based on the parameter, the appropriate compression method is selected `-type`
 2. **Directory Analysis**: The specified directory structure is scanned
-3. **File Compression**: All files are compressed while preserving paths and metadata
-4. **Archive Creation**: A single archive containing all compressed data is created
-5. **Result Passing**: The compressed data is passed for subsequent encryption
+3. **File Compression**: All files are compressed while preserving paths and metadata; for the `zip` type, per-file deflate runs in parallel across CPU cores
+4. **Archive Creation**: A single archive containing all compressed data is created (entries are assembled in their original order, so the output is a standard, byte-compatible ZIP)
+5. **Result Passing**: The compressed data is streamed directly to encryption without being staged on disk
 
 Decompression Process:
 1. **Data Extraction**: After container decryption, the compressed data is extracted
 2. **Compression Type Identification**: Based on container metadata, the compression method used is determined
-3. **File Unpacking**: All files are extracted with restoration of the original structure
+3. **File Unpacking**: All files are extracted with restoration of the original structure; extraction runs in parallel across CPU cores after a path-validation and directory-creation pass
 4. **Integrity Verification**: The integrity of the extracted data is verified
 5. **Access Restoration**: Original access rights to files and directories are restored
 

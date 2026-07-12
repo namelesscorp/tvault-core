@@ -127,11 +127,17 @@ Command: log-writer
 The `Reseal` function orchestrates the entire resealing process:
 1. Open the original encrypted container
 2. Extract the master key using the provided token(s)
-3. Compress the new content folder
+3. Walk the new content folder for metadata (uncompressed size, file count, file names) and compute the security score
 4. Generate token output in memory before modifying destination files
-5. Re-encrypt the container into a temporary file
+5. Compress and encrypt in a single streaming pass: the packer streams the archive through an in-memory pipe directly into the container writer (into a temporary file), so the compressed archive is never staged on disk and compression overlaps with encryption
 6. Flush and atomically rename the new container over its destination
 7. Flush and atomically replace the token file, if file output is configured
+
+Compression uses the parallel ZIP packer, so resealing a folder of many files scales with the available CPU cores.
+
+## Progress Output
+
+While packing and encrypting, `reseal` emits progress on stdout as lines of the form `PROGRESS <percent>`, where `<percent>` is an integer from `0` to `100`. These lines are distinct from the JSON token/log output on the same stream and are intended for a wrapping GUI to render a progress bar; they can be ignored when the CLI is used directly.
 
 ## Token Handling
 

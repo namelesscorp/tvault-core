@@ -166,6 +166,12 @@ The `Seal` function orchestrates the entire sealing process:
 4. Generates token(s) for later access
 5. Saves the token(s) according to the specified method
 
+Compression and encryption run as a single streaming pipeline (the archive is piped straight into the container writer, never staged on disk), and for the `zip` type the per-file deflate is parallelized across CPU cores, so sealing a folder of many files scales with the available cores.
+
+## Progress Output
+
+While packing and encrypting, `seal` emits progress on stdout as lines of the form `PROGRESS <percent>`, where `<percent>` is an integer from `0` to `100`. These lines are distinct from the JSON token/log output on the same stream and are intended for a wrapping GUI to render a progress bar; they can be ignored when the CLI is used directly.
+
 ## Shamir's Secret Sharing
 
 When is set to `true`, the master key is split into multiple shares using Shamir's Secret Sharing algorithm. 

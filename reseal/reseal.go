@@ -22,12 +22,6 @@ import (
 	"github.com/namelesscorp/tvault-core/unseal"
 )
 
-type compressedArtifact struct {
-	Comp    compression.Compression
-	ZipPath string
-	ZipSize int64
-}
-
 // Reseal - processes a sealed container by decrypting, modifying, and re-encrypting it with updated metadata and tokens.
 func Reseal(opts Options) error {
 	currentContainer := container.NewContainer(
@@ -133,10 +127,11 @@ func Reseal(opts Options) error {
 		)
 	}
 
-	artifact, err := compressFolderForReseal(
-		compression.ConvertIDToName(currentContainer.GetHeader().CompressionType),
-		*opts.Container.FolderPath,
-	)
+	// One monotonic "PROGRESS <pct>" bar across the reseal, driven off the
+	// uncompressed input like seal. Finish is emitted on success only.
+	progress := lib.NewProgressReporter()
+
+	comp, err := newResealCompressor(compression.ConvertIDToName(currentContainer.GetHeader().CompressionType))
 	if err != nil {
 		return lib.InternalErr(
 			lib.CategoryReseal,
@@ -146,7 +141,25 @@ func Reseal(opts Options) error {
 			err,
 		)
 	}
-	defer func() { _ = os.Remove(artifact.ZipPath) }()
+
+	// Walk the folder once for the stats the metadata/security score need before
+	// the payload is written; the same entries are handed to the packer below so
+	// the tree is not walked again to compress it.
+	entries, uncompressedSize, fileCount, fileNameList, err := zip.WalkFolder(*opts.Container.FolderPath)
+	if err != nil {
+		return lib.InternalErr(
+			lib.CategoryReseal,
+			lib.ErrCodeResealCompressFolderError,
+			lib.ErrMessageResealCompressFolderError,
+			"",
+			err,
+		)
+	}
+
+	packPhase := progress.Phase(0, 100, uncompressedSize)
+	if p, ok := comp.(interface{ SetProgress(func(int64)) }); ok {
+		p.SetProgress(packPhase.Add)
+	}
 
 	secScore := security.New(security.Params{
 		TokenType:                   token.ConvertIDToName(currentContainer.GetHeader().TokenType),
@@ -156,18 +169,19 @@ func Reseal(opts Options) error {
 		NumberOfThreshold:           int(currentContainer.GetHeader().Threshold),
 		ContainerPassphrase:         *opts.Container.Passphrase,
 		IntegrityProviderPassphrase: *getIntegrityProviderPassphrasePtr(opts.IntegrityProvider),
-		FileNameList:                artifact.Comp.GetFileNameList(),
+		FileNameList:                fileNameList,
 	})
 
 	currentContainer.SetMetadata(container.Metadata{
-		Name:             containerName,
-		CreatedAt:        currentContainer.GetMetadata().CreatedAt,
-		UpdatedAt:        time.Now(),
-		Comment:          comment,
-		Tags:             tags,
-		CompressedSize:   artifact.ZipSize,
-		UncompressedSize: artifact.Comp.GetUncompressedSize(),
-		FileCount:        artifact.Comp.GetFileCount(),
+		Name:      containerName,
+		CreatedAt: currentContainer.GetMetadata().CreatedAt,
+		UpdatedAt: time.Now(),
+		Comment:   comment,
+		Tags:      tags,
+		// CompressedSize is patched in place by WriteEncrypted once the payload
+		// has been streamed, so it need not be known here.
+		UncompressedSize: uncompressedSize,
+		FileCount:        fileCount,
 		SecurityScore:    secScore.Calculate(),
 	})
 
@@ -187,20 +201,28 @@ func Reseal(opts Options) error {
 		}
 	}
 
-	// Write the new container to a temporary file and atomically replace the
-	// target. The original container is only ever destroyed once a complete new
-	// one is in place, so a mid-write failure can never leave the vault without a
-	// valid container.
-	if err = writeContainerAtomic(currentContainer, artifact.ZipPath, targetContainerPath); err != nil {
+	// Compress and encrypt in one pass: the packer streams the archive through a
+	// pipe straight into the container writer, so the compressed archive is never
+	// staged on disk and compression overlaps with encryption. The new container
+	// is written to a temp file and atomically renamed, so the original is only
+	// destroyed once a complete new one is in place.
+	if err = compressEncryptAtomic(currentContainer, comp, entries, targetContainerPath); err != nil {
 		return err
 	}
 
 	if tokenType == token.TypeNone {
+		progress.Finish()
 		return nil
 	}
 
 	// Only after the container is safely in place, write the tokens atomically.
-	return writeTokensAtomic(opts.TokenWriter, tokenBuf.Bytes())
+	if err = writeTokensAtomic(opts.TokenWriter, tokenBuf.Bytes()); err != nil {
+		return err
+	}
+
+	progress.Finish()
+
+	return nil
 }
 
 // generateResealTokens - produces the token output for reseal into w, without
@@ -264,11 +286,73 @@ func generateResealTokens(
 	return nil
 }
 
-// writeContainerAtomic - encrypts the container into a temporary file in the
-// target directory and atomically renames it over targetPath. This guarantees
-// the previous container is never truncated in place: it is replaced only once a
+// newResealCompressor selects a compressor instance for the container's
+// compression type. Both "zip" (Deflate) and "none" (Store) are produced by the
+// zip package.
+func newResealCompressor(compressionType string) (compression.Compression, error) {
+	switch compressionType {
+	case compression.TypeNameZip:
+		return zip.New(), nil
+	case compression.TypeNameNone:
+		return zip.NewStore(), nil
+	default:
+		return nil, lib.ErrUnknownCompressionType
+	}
+}
+
+// compressEncryptAtomic streams the packed entries through a pipe into the
+// container writer, so the compressed archive is never staged on disk and
+// compression overlaps with encryption. It delegates the durable temp-file +
+// rename write to writeContainerAtomic.
+func compressEncryptAtomic(
+	cont container.Container,
+	comp compression.Compression,
+	entries []zip.Entry,
+	targetPath string,
+) error {
+	packer, ok := comp.(interface {
+		PackEntriesTo([]zip.Entry, io.Writer) error
+	})
+	if !ok {
+		return lib.ErrUnknownCompressionType
+	}
+
+	pr, pw := io.Pipe()
+	packErrCh := make(chan error, 1)
+
+	go func() {
+		defer func() { _ = pw.Close() }()
+
+		if packErr := packer.PackEntriesTo(entries, pw); packErr != nil {
+			_ = pw.CloseWithError(packErr)
+			packErrCh <- packErr
+
+			return
+		}
+
+		packErrCh <- nil
+	}()
+
+	if err := writeContainerAtomic(cont, pr, targetPath); err != nil {
+		// Unblock the packer if it is still mid-write, then reap it.
+		_ = pr.CloseWithError(err)
+		<-packErrCh
+
+		return err
+	}
+
+	if packErr := <-packErrCh; packErr != nil {
+		return lib.IOErr(lib.CategoryReseal, lib.ErrCodeResealCompressFolderError, lib.ErrMessageResealCompressFolderError, "", packErr)
+	}
+
+	return nil
+}
+
+// writeContainerAtomic - encrypts src into a temporary file in the target
+// directory and atomically renames it over targetPath. This guarantees the
+// previous container is never truncated in place: it is replaced only once a
 // complete, valid new container exists on disk.
-func writeContainerAtomic(cont container.Container, zipPath, targetPath string) error {
+func writeContainerAtomic(cont container.Container, src io.Reader, targetPath string) error {
 	tmp, err := os.CreateTemp(filepath.Dir(targetPath), ".tvault-container-*.tmp")
 	if err != nil {
 		return lib.IOErr(lib.CategoryReseal, lib.ErrCodeResealWriteContainerError, lib.ErrMessageResealWriteContainerError, "", err)
@@ -283,18 +367,10 @@ func writeContainerAtomic(cont container.Container, zipPath, targetPath string) 
 		}
 	}()
 
-	// zipPath is not user input: it is always the name of a temp file created by
-	// compressFolderForReseal via os.CreateTemp, so there is no traversal risk.
-	zf, err := os.Open(zipPath) // #nosec G304
-	if err != nil {
-		return lib.IOErr(lib.CategoryReseal, lib.ErrCodeResealEncryptContainerError, lib.ErrMessageResealEncryptContainerError, "", err)
-	}
-	defer func() { _ = zf.Close() }()
-
 	// WriteEncrypted fsyncs the temp file's contents before returning, so the
 	// data is durable before the rename below.
 	cont.SetPath(tmpPath)
-	if err = cont.WriteEncrypted(zf, nil); err != nil {
+	if err = cont.WriteEncrypted(src, nil); err != nil {
 		return lib.InternalErr(lib.CategoryReseal, lib.ErrCodeResealEncryptContainerError, lib.ErrMessageResealEncryptContainerError, "", err)
 	}
 
@@ -366,39 +442,6 @@ func writeTokensAtomic(writerOpts *lib.Writer, data []byte) error {
 		return nil
 	default:
 		return lib.ErrUnknownWriterType
-	}
-}
-
-func compressFolderForReseal(compressionType, folderPath string) (*compressedArtifact, error) {
-	switch compressionType {
-	case compression.TypeNameZip:
-		comp := zip.New()
-
-		tmp, err := os.CreateTemp("", "tvault-zip-*.zip")
-		if err != nil {
-			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
-		}
-		tmpPath := tmp.Name()
-
-		if err := comp.PackTo(folderPath, tmp); err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmpPath)
-			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
-		}
-		if err := tmp.Close(); err != nil {
-			_ = os.Remove(tmpPath)
-			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
-		}
-
-		st, err := os.Stat(tmpPath)
-		if err != nil {
-			_ = os.Remove(tmpPath)
-			return nil, lib.IOErr(lib.CategorySeal, lib.ErrCodeSealCompressionPackError, lib.ErrMessageSealCompressionPackError, "", err)
-		}
-
-		return &compressedArtifact{Comp: comp, ZipPath: tmpPath, ZipSize: st.Size()}, nil
-	default:
-		return nil, lib.ErrUnknownCompressionType
 	}
 }
 

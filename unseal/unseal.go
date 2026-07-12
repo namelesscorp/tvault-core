@@ -105,8 +105,15 @@ func Unseal(opts Options) error {
 		_ = os.Remove(tmpPath)
 	}()
 
-	if err := cont.DecryptTo(tmp, masterKey); err != nil {
-		return lib.InternalErr(lib.CategoryUnseal, lib.ErrCodeUnsealContainerError, lib.ErrMessageUnsealContainerError, "", err)
+	// Emit "PROGRESS <pct>" across the whole unseal as one monotonic 0..100 bar:
+	// decrypt fills 0..50 (metadata records the compressed == decrypted size) and
+	// extraction fills 50..100 (uncompressed size) below. Finish on success only.
+	progress := lib.NewProgressReporter()
+
+	decryptPhase := progress.Phase(0, 50, cont.GetMetadata().CompressedSize)
+	decryptErr := cont.DecryptTo(decryptPhase.WrapWriter(tmp), masterKey)
+	if decryptErr != nil {
+		return lib.InternalErr(lib.CategoryUnseal, lib.ErrCodeUnsealContainerError, lib.ErrMessageUnsealContainerError, "", decryptErr)
 	}
 
 	if err := tmp.Close(); err != nil {
@@ -125,9 +132,19 @@ func Unseal(opts Options) error {
 		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealUnpackContentError, lib.ErrMessageUnsealUnpackContentError, "", err)
 	}
 
-	if err := zip.New().UnpackFrom(zf, st.Size(), *opts.Container.FolderPath); err != nil {
+	// Extraction fills the second half (50..100) of the progress bar, driven by
+	// the uncompressed total; the unpacker reports each byte written to disk.
+	extractPhase := progress.Phase(50, 100, cont.GetMetadata().UncompressedSize)
+	unpacker := zip.New()
+	if p, ok := unpacker.(interface{ SetProgress(func(int64)) }); ok {
+		p.SetProgress(extractPhase.Add)
+	}
+
+	if err := unpacker.UnpackFrom(zf, st.Size(), *opts.Container.FolderPath); err != nil {
 		return lib.IOErr(lib.CategoryUnseal, lib.ErrCodeUnsealCompressionUnpackError, lib.ErrMessageUnsealCompressionUnpackError, "", err)
 	}
+
+	progress.Finish()
 
 	return nil
 }

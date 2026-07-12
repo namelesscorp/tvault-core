@@ -56,3 +56,10 @@ This intentional design choice means key derivation operations will take a notic
 
 - Customizable parameters for the package's core components
 - Flexible options for adapting functionality to specific tasks
+
+### Progress Reporting (progress.go)
+
+- `ProgressReporter` emits machine-readable progress on stdout as `PROGRESS <percent>` lines (integer `0`–`100`), consumed by the desktop GUI to drive a progress bar
+- A line is emitted only when the integer percent advances, keeping the stream terse; the lines are distinct from the JSON token/log output on the same stream
+- An operation drives the reporter through one or more `Phase`s, each mapped onto a sub-range of the overall `0`–`100` bar, so a multi-step operation (e.g. decrypt then extract) advances monotonically instead of resetting
+- Phase handles expose `WrapReader`/`WrapWriter`/`Add`, so byte progress can be tracked by wrapping the `io.Reader`/`io.Writer` used for compression, encryption, decryption, or extraction; all methods are safe for concurrent use and nil-safe

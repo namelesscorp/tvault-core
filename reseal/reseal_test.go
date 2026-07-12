@@ -2,6 +2,7 @@ package reseal
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,12 @@ import (
 	"github.com/namelesscorp/tvault-core/lib"
 	"github.com/namelesscorp/tvault-core/token"
 )
+
+// failingReader always fails on Read with a non-EOF error, so WriteEncrypted
+// treats it as a real read failure (not a clean end of stream).
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("simulated read failure") }
 
 func TestIsIntegrityProviderPassphraseChanged(t *testing.T) {
 	tests := []struct {
@@ -162,15 +169,10 @@ func TestWriteContainerAtomicSuccess(t *testing.T) {
 	dir := t.TempDir()
 	targetPath := filepath.Join(dir, "vault.tvlt")
 
-	zipPath := filepath.Join(dir, "payload.zip")
-	if err := os.WriteFile(zipPath, []byte("plaintext-payload"), 0o600); err != nil {
-		t.Fatalf("write payload: %v", err)
-	}
-
 	key := bytes.Repeat([]byte{0x01}, lib.KeyLen)
 	cont := container.NewContainer(targetPath, key, container.Metadata{Tags: []string{}}, container.Header{})
 
-	if err := writeContainerAtomic(cont, zipPath, targetPath); err != nil {
+	if err := writeContainerAtomic(cont, bytes.NewReader([]byte("plaintext-payload")), targetPath); err != nil {
 		t.Fatalf("writeContainerAtomic() error: %v", err)
 	}
 
@@ -201,9 +203,9 @@ func TestWriteContainerAtomicFailurePreservesTarget(t *testing.T) {
 	key := bytes.Repeat([]byte{0x01}, lib.KeyLen)
 	cont := container.NewContainer(targetPath, key, container.Metadata{Tags: []string{}}, container.Header{})
 
-	// Non-existent zip source makes the write fail after the temp file is created
-	// but before the target would be replaced.
-	err := writeContainerAtomic(cont, filepath.Join(dir, "does-not-exist.zip"), targetPath)
+	// A source that errors mid-read makes the encrypt fail after the temp file is
+	// created but before the target would be replaced.
+	err := writeContainerAtomic(cont, &failingReader{}, targetPath)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

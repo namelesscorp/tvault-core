@@ -21,6 +21,20 @@ All notable changes to this project will be documented in this file.
 
 ## Tags
 
+### [v1.1.0](https://github.com/namelesscorp/tvault-core/releases/tag/v1.1.0) - 2026-07-12
+
+#### Added
+
+- Machine-readable progress reporting: `seal`, `unseal`, and `reseal` now emit `PROGRESS <percent>` lines (integer 0–100) on stdout while packing, encrypting, decrypting, and extracting, so the desktop GUI can drive a progress bar. Multi-step operations (decrypt + extract, compress + encrypt) map their phases onto a single monotonic 0–100 range, and the lines are distinct from the JSON token/log output on the same stream.
+
+#### Changed
+
+- Parallelized ZIP deflate compression across a bounded worker pool: files are compressed concurrently and assembled into the archive in their original order via `CreateRaw`, so multi-file `seal`/`reseal` scale with available CPU cores (~5× faster on many-file vaults, ~2× on single large files). The output remains a standard ZIP, and a memory budget caps the compressed data buffered in flight.
+- Parallelized container extraction in `unseal` across a worker pool, after a sequential pass that validates every entry path (fail-fast on traversal) and creates directories; multi-file extraction now scales with CPU cores.
+- `reseal` now streams compression directly into container encryption through an in-memory pipe, instead of staging the compressed archive in a temporary file and reading it back. This removes a full write+read of the payload, overlaps compression with encryption, and routes `reseal` through the parallel packer.
+- Reused pooled `flate` writers and copy buffers across entries to cut per-file allocations during packing and extraction.
+- Bumped the CLI version to `v1.1.0`.
+
 ### [v1.0.1](https://github.com/namelesscorp/tvault-core/releases/tag/v1.0.1) - 2026-07-12
 
 #### Added

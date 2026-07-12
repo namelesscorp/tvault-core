@@ -175,6 +175,16 @@ func CreateContainer(
 		)
 	}
 
+	// Report "PROGRESS <pct>" off the uncompressed input: WalkFolder already
+	// gave the total, and the packer reports each source byte as it is read
+	// (via SetProgress), so progress advances while the archive streams through
+	// the pipe into WriteEncrypted below. Finish is emitted on success only.
+	progress := lib.NewProgressReporter()
+	packPhase := progress.Phase(0, 100, uncompressedSize)
+	if p, ok := comp.(interface{ SetProgress(func(int64)) }); ok {
+		p.SetProgress(packPhase.Add)
+	}
+
 	secScore := security.New(security.Params{
 		TokenType:                   token.ConvertIDToName(tokenID),
 		IntegrityProviderType:       integrity.ConvertIDToName(integrityProviderID),
@@ -251,6 +261,8 @@ func CreateContainer(
 			packErr,
 		)
 	}
+
+	progress.Finish()
 
 	var containerHeaderSalt = cont.GetHeader().Salt
 	return cont.GetMasterKey(), containerHeaderSalt[:], nil

@@ -110,6 +110,12 @@ The unseal package supports two types of tokens:
 7. Decompress the decrypted data
 8. Restore the original folder structure to the specified location
 
+Extraction is parallelized across CPU cores: after a sequential pass validates every entry path and creates directories, the files are unpacked concurrently, so unsealing a container of many files scales with the available cores.
+
+## Progress Output
+
+While decrypting and extracting, `unseal` emits progress on stdout as lines of the form `PROGRESS <percent>`, where `<percent>` is an integer from `0` to `100`. The decrypt and extract phases map onto a single monotonic `0`–`100` range. These lines are intended for a wrapping GUI to render a progress bar and can be ignored when the CLI is used directly.
+
 ## Supported Integrity Providers
 - `none`: No integrity verification
 - : HMAC-based integrity verification (requires an additional password) `hmac`

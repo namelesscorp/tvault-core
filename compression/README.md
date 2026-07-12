@@ -13,3 +13,7 @@ The following compression types are currently supported:
 - **Zip**: Standard ZIP compression (deflate), offering an efficient compression ratio and wide compatibility
 
 Both types are produced by the `zip` package (`zip.New` for deflate, `zip.NewStore` for stored/"none").
+
+## Performance
+
+For the `Zip` (deflate) type, per-file compression is fanned out across a worker pool and the entries are assembled into the archive in their original order, so multi-file `seal`/`reseal` scale with the number of CPU cores. Extraction (`unseal`) is likewise parallelized across files after a sequential path-validation and directory-creation pass. The output stays a standard, byte-compatible ZIP; only the internal packing/unpacking is concurrent. See the `zip` package README for details.
