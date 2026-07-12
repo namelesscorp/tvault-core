@@ -7,6 +7,10 @@ help:
 	@echo "Available commands:"
 	@echo "  make build        - Build the application"
 	@echo "  make clean        - Remove build artifacts"
+	@echo "  make lint         - Run golang ci linter"
+	@echo "  make sec          - Run golang security linter"
+	@echo "  make uml          - Generate svg from puml"
+	@echo "  make checkup      - full checkup app"
 
 build:
 	go build -o $(APP_NAME) $(MAIN_PATH)
@@ -21,3 +25,18 @@ clean:
 
 uml:
 	plantuml -tsvg docs/*.puml
+
+lint:
+	golangci-lint run ./...
+
+sec:
+	gosec run ./...
+
+test:
+	go test ./...
+
+checkup:
+	make build
+	make lint
+	make sec
+	make test
